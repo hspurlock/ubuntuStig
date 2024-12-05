@@ -1,0 +1,16 @@
+[Unit]
+Description=Ubuntu STIG Scanner Service
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=notify
+User=root
+Group=root
+WorkingDirectory=/home/heath/CascadeProjects/ubuntu-stig-scanner
+ExecStart=/usr/bin/python3 /home/heath/CascadeProjects/ubuntu-stig-scanner/stig_scanner.py
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
