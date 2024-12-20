@@ -56,7 +56,7 @@ class STIGScanner:
             # Run OpenSCAP scan
             subprocess.run([
                 'oscap', 'xccdf', 'eval',
-                '--profile', 'xccdf_mil.disa.stig_profile_MAC-1_Classified',
+                '--profile', 'MAC-1_Classified',
                 '--results', f'{str(report_path)}.xml',
                 '--report', f'{str(report_path)}.html',
                 str(benchmark_path)
