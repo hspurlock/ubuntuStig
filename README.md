@@ -35,7 +35,7 @@ pip install -r requirements.txt
 3. Install system dependencies (will be done automatically on first run):
 ```bash
 sudo apt-get update
-sudo apt-get install -y libopenscap8 openscap-scanner ssg-base ssg-debderived
+sudo apt-get install -y libopenscap8 openscap-scanner ssg-base ssg-debderived libsystemd-dev
 ```
 
 ## Running as a Systemd Service
