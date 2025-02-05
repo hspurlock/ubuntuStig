@@ -13,11 +13,13 @@ from pathlib import Path
 from jinja2 import Template
 
 class STIGScanner:
-    def __init__(self):
+    def __init__(self, profile_name=None):
         self.base_dir = Path(__file__).parent
         self.reports_dir = self.base_dir / 'reports'
         self.reports_dir.mkdir(exist_ok=True)
-        # Removed Docker client initialization
+        self.benchmark_dir = self.base_dir / 'benchmarks'
+        self.benchmark_dir.mkdir(exist_ok=True)
+        self.profile_name = profile_name or 'xccdf_mil.disa.stig_profile_MAC-1_Classified'
         
         # Ensure OpenSCAP is installed
         self._check_dependencies()
@@ -35,32 +37,80 @@ class STIGScanner:
         
         # Removed Docker scanning
 
-    def download_stig_benchmark(self):
-        """Load the DISA STIG for Ubuntu 22.04 from a local zip file."""
-        benchmark_dir = self.base_dir / 'benchmarks'
-        benchmark_dir.mkdir(exist_ok=True)
+    def find_stig_zip(self):
+        """Find any STIG zip file in the base directory or STIG_FILES_DIR."""
+        # Check environment variable first
+        stig_dir = os.getenv('STIG_FILES_DIR')
+        if stig_dir:
+            stig_path = Path(stig_dir)
+            if stig_path.exists():
+                for file in stig_path.glob('*.zip'):
+                    if 'STIG' in file.name.upper():
+                        return file
+        
+        # Fallback to base directory
+        for file in self.base_dir.glob('*.zip'):
+            if 'STIG' in file.name.upper():
+                return file
+                
+        raise FileNotFoundError('No STIG zip file found in STIG_FILES_DIR or base directory')
 
-        # Load benchmark from local zip file
-        local_zip_path = self.base_dir / 'U_CAN_Ubuntu_22-04_LTS_V2R2_STIG.zip'
-        subprocess.run(['unzip', '-o', str(local_zip_path), '-d', str(benchmark_dir)], check=True)
+    def extract_stig_benchmark(self):
+        """Extract the STIG benchmark from any available zip file."""
+        try:
+            # Find and extract the STIG zip file
+            zip_file = self.find_stig_zip()
+            print(f'Found STIG file: {zip_file.name}')
+            
+            # Clear existing benchmark directory
+            if self.benchmark_dir.exists():
+                for item in self.benchmark_dir.iterdir():
+                    if item.is_dir():
+                        for subitem in item.iterdir():
+                            subitem.unlink()
+                        item.rmdir()
+                    else:
+                        item.unlink()
+            
+            # Extract new benchmark
+            try:
+                subprocess.run(['unzip', '-o', str(zip_file), '-d', str(self.benchmark_dir)], 
+                              check=True, capture_output=True, text=True)
+                print(f'Successfully extracted {zip_file.name}')
+            except subprocess.CalledProcessError as e:
+                print(f'Error extracting zip file: {e.stderr}')
+                raise
+                
+        except Exception as e:
+            print(f'Error processing STIG benchmark: {str(e)}')
+            raise
+
+    def find_benchmark_xml(self):
+        """Find the XCCDF benchmark XML file in the extracted contents."""
+        for file in self.benchmark_dir.rglob('*xccdf.xml'):
+            return file
+        raise FileNotFoundError('No XCCDF benchmark XML file found in the extracted contents')
 
     def run_scan(self):
         """Execute STIG compliance scan."""
         timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         report_path = self.reports_dir / f'stig_report_{timestamp}'
         
-        # Path to the STIG benchmark XML file
-        benchmark_path = self.base_dir / 'benchmarks' / 'U_CAN_Ubuntu_22-04_LTS_V2R2_Manual_STIG' / 'U_CAN_Ubuntu_22-04_LTS_STIG_V2R2_Manual-xccdf.xml'
-        
         try:
+            # Find the benchmark XML file
+            benchmark_path = self.find_benchmark_xml()
+            print(f'Using benchmark file: {benchmark_path}')
+            
             # Run OpenSCAP scan
-            subprocess.run([
+            result = subprocess.run([
                 'oscap', 'xccdf', 'eval',
-                '--profile', 'xccdf_mil.disa.stig_profile_MAC-1_Classified',
+                '--profile', self.profile_name,
                 '--results', f'{str(report_path)}.xml',
                 '--report', f'{str(report_path)}.html',
                 str(benchmark_path)
-            ], check=True)
+            ], check=True, capture_output=True, text=True)
+            
+            print(result.stdout)
             
             print(f"Scan completed successfully. Reports saved to {report_path}.xml and {report_path}.html")
             return True
@@ -73,8 +123,13 @@ def main():
     
     # Run scan immediately
     print("Running STIG compliance scan...")
-    scanner.download_stig_benchmark()
-    scanner.run_scan()
+    try:
+        scanner.extract_stig_benchmark()
+        scanner.run_scan()
+        print("Scan completed successfully")
+    except Exception as e:
+        print(f"Error during scan: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     import sys
