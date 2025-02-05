@@ -60,29 +60,42 @@ class STIGScanner:
         try:
             # Find and extract the STIG zip file
             zip_file = self.find_stig_zip()
-            print(f'Found STIG file: {zip_file.name}')
+            logging.info(f'Found STIG file: {zip_file.name}')
             
             # Clear existing benchmark directory
             if self.benchmark_dir.exists():
-                for item in self.benchmark_dir.iterdir():
-                    if item.is_dir():
-                        for subitem in item.iterdir():
-                            subitem.unlink()
-                        item.rmdir()
-                    else:
-                        item.unlink()
+                try:
+                    for item in self.benchmark_dir.iterdir():
+                        if item.is_dir():
+                            for subitem in item.iterdir():
+                                subitem.unlink()
+                            item.rmdir()
+                        else:
+                            item.unlink()
+                except PermissionError as e:
+                    logging.error(f'Permission error while clearing benchmark directory: {e}')
+                    raise
+                except Exception as e:
+                    logging.error(f'Error while clearing benchmark directory: {e}')
+                    raise
             
             # Extract new benchmark
             try:
-                subprocess.run(['unzip', '-o', str(zip_file), '-d', str(self.benchmark_dir)], 
-                              check=True, capture_output=True, text=True)
-                print(f'Successfully extracted {zip_file.name}')
+                result = subprocess.run(
+                    ['unzip', '-o', str(zip_file), '-d', str(self.benchmark_dir)], 
+                    check=True, capture_output=True, text=True
+                )
+                logging.info(f'Successfully extracted {zip_file.name}')
+                logging.debug(f'Unzip output: {result.stdout}')
             except subprocess.CalledProcessError as e:
-                print(f'Error extracting zip file: {e.stderr}')
+                logging.error(f'Error extracting zip file: {e.stderr}')
+                raise
+            except Exception as e:
+                logging.error(f'Unexpected error during extraction: {str(e)}')
                 raise
                 
         except Exception as e:
-            print(f'Error processing STIG benchmark: {str(e)}')
+            logging.error(f'Error processing STIG benchmark: {str(e)}')
             raise
 
     def find_benchmark_xml(self):
@@ -90,6 +103,29 @@ class STIGScanner:
         for file in self.benchmark_dir.rglob('*xccdf.xml'):
             return file
         raise FileNotFoundError('No XCCDF benchmark XML file found in the extracted contents')
+
+    def analyze_report(self, xml_path):
+        """Analyze the XML report and return a summary of compliance results."""
+        try:
+            result = subprocess.run(
+                ['oscap', 'xccdf', 'generate', 'report', str(xml_path)],
+                capture_output=True, text=True, check=True
+            )
+            
+            # Parse the results to get pass/fail counts
+            passed = result.stdout.count('pass')
+            failed = result.stdout.count('fail')
+            total = passed + failed
+            
+            return {
+                'passed': passed,
+                'failed': failed,
+                'total': total,
+                'compliance_rate': (passed / total * 100) if total > 0 else 0
+            }
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Error analyzing report: {e}")
+            return None
 
     def run_scan(self):
         """Execute STIG compliance scan."""
@@ -99,36 +135,74 @@ class STIGScanner:
         try:
             # Find the benchmark XML file
             benchmark_path = self.find_benchmark_xml()
-            print(f'Using benchmark file: {benchmark_path}')
+            logging.info(f'Using benchmark file: {benchmark_path}')
             
             # Run OpenSCAP scan
+            # First list available profiles
+            profile_list = subprocess.run(
+                ['oscap', 'info', str(benchmark_path)],
+                capture_output=True, text=True, check=True
+            )
+            logging.info("Available profiles:")
+            logging.info(profile_list.stdout)
+            
+            # Run the scan with more verbose output
             result = subprocess.run([
                 'oscap', 'xccdf', 'eval',
+                '--verbose', 'INFO',
                 '--profile', self.profile_name,
                 '--results', f'{str(report_path)}.xml',
                 '--report', f'{str(report_path)}.html',
                 str(benchmark_path)
-            ], check=True, capture_output=True, text=True)
+            ], capture_output=True, text=True)
             
-            print(result.stdout)
+            logging.info("STDOUT:")
+            logging.info(result.stdout)
+            logging.info("\nSTDERR:")
+            logging.info(result.stderr)
             
-            print(f"Scan completed successfully. Reports saved to {report_path}.xml and {report_path}.html")
+            if result.returncode != 0:
+                logging.error(f"\nScan completed with return code: {result.returncode}")
+                return False
+            
+            # Analyze the results
+            analysis = self.analyze_report(f'{str(report_path)}.xml')
+            if analysis:
+                logging.info("Scan Analysis:")
+                logging.info(f"Total Rules: {analysis['total']}")
+                logging.info(f"Passed: {analysis['passed']}")
+                logging.info(f"Failed: {analysis['failed']}")
+                logging.info(f"Compliance Rate: {analysis['compliance_rate']:.2f}%")
+            
+            logging.info(f"Scan completed successfully. Reports saved to {report_path}.xml and {report_path}.html")
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error during scan: {e}")
+            logging.error(f"Error during scan: {e}")
             return False
 
 def main():
-    scanner = STIGScanner()
+    # Set up argument parser
+    import argparse
+    parser = argparse.ArgumentParser(description='STIG Compliance Scanner')
+    parser.add_argument('--profile', default='MAC-1_Public',
+                        help='STIG profile to use for scanning (default: MAC-1_Public)')
+    args = parser.parse_args()
+    
+    scanner = STIGScanner(profile_name=args.profile)
     
     # Run scan immediately
-    print("Running STIG compliance scan...")
+    logging.info("Running STIG compliance scan...")
     try:
         scanner.extract_stig_benchmark()
-        scanner.run_scan()
-        print("Scan completed successfully")
+        success = scanner.run_scan()
+        if success:
+            logging.info("Scan completed successfully")
+            sys.exit(0)
+        else:
+            logging.error("Scan failed")
+            sys.exit(1)
     except Exception as e:
-        print(f"Error during scan: {str(e)}")
+        logging.error(f"Error during scan: {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":

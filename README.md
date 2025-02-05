@@ -1,25 +1,72 @@
 # Ubuntu 22.04 STIG Compliance Scanner
 
-This tool performs automated STIG (Security Technical Implementation Guide) compliance scanning for Ubuntu 22.04 systems and generates monthly reports.
+This tool performs automated STIG (Security Technical Implementation Guide) compliance scanning for Ubuntu 22.04 systems using OpenSCAP. It can be run directly on the host system or within a Docker container.
 
 ## Features
 
 - Automated STIG compliance scanning using OpenSCAP
-- Monthly scheduled scans
-- Detailed HTML reports for each scan
-- Monthly trend analysis and visualization
-- Docker container security scanning
-- Systemd service integration
-- Automatic dependency management
+- Support for any Ubuntu 22.04 STIG benchmark zip file
+- Detailed HTML and XML reports
+- Compliance statistics and analysis
+- Docker container support
+- Profile-based scanning
 
 ## Prerequisites
 
-- Ubuntu 22.04 LTS
-- Python 3.10 or higher
-- sudo privileges (for system scanning)
-- Docker (optional, for container scanning)
+- Ubuntu 22.04 LTS (for direct installation)
+- Python 3.10 or higher (for direct installation)
+- Docker (for container-based execution)
+- STIG benchmark file for Ubuntu 22.04
 
-## Installation
+## Docker Execution (Recommended)
+
+1. Clone this repository:
+```bash
+git clone https://github.com/hspurlock/ubuntuStig.git
+cd ubuntuStig
+```
+
+2. Download the STIG benchmark:
+```bash
+wget https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/U_CAN_Ubuntu_22-04_LTS_V2R2_STIG.zip
+```
+
+3. Build the Docker image:
+```bash
+docker build -t ubuntu-stig-scanner .
+```
+
+4. Run the scanner:
+```bash
+docker run --privileged -v $(pwd)/reports:/app/reports ubuntu-stig-scanner
+```
+
+Additional Docker options:
+- Specify a different STIG profile:
+```bash
+docker run --privileged -v $(pwd)/reports:/app/reports ubuntu-stig-scanner python3 stig_scanner.py --profile MAC-1_Classified
+```
+
+- Available profiles:
+  - MAC-1_Public (default)
+  - MAC-1_Classified
+  - MAC-1_Sensitive
+  - MAC-2_Public
+  - MAC-2_Classified
+  - MAC-2_Sensitive
+  - MAC-3_Public
+  - MAC-3_Classified
+  - MAC-3_Sensitive
+
+- Mount a custom STIG zip file:
+```bash
+docker run --privileged \
+  -v $(pwd)/reports:/app/reports \
+  -v /path/to/custom/stig.zip:/app/stig_files/stig.zip \
+  ubuntu-stig-scanner
+```
+
+## Direct Installation
 
 1. Clone this repository:
 ```bash
@@ -32,72 +79,50 @@ cd ubuntuStig
 pip install -r requirements.txt
 ```
 
-3. Install system dependencies (will be done automatically on first run):
+3. Install system dependencies:
 ```bash
 sudo apt-get update
 sudo apt-get install -y libopenscap8 openscap-scanner ssg-base ssg-debderived
 ```
 
-4. Download latest STIG benchmark:
+4. Download STIG benchmark:
 ```bash
 wget https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/U_CAN_Ubuntu_22-04_LTS_V2R2_STIG.zip -O U_CAN_Ubuntu_22-04_LTS_V2R2_STIG.zip
 ```
 
-## Running as a Systemd Service
-
-1. Copy the service file to systemd directory:
-```bash
-sudo cp ubuntuStig.service /etc/systemd/system/
-```
-
-2. Reload systemd daemon:
-```bash
-sudo systemctl daemon-reload
-```
-
-3. Enable and start the service:
-```bash
-sudo systemctl enable ubuntuStig
-sudo systemctl start ubuntuStig
-```
-
-4. Check service status:
-```bash
-sudo systemctl status ubuntuStig
-```
-
-Service logs can be viewed using:
-```bash
-sudo journalctl -u ubuntuStig
-```
-
-## Manual Usage
-
-You can also run the scanner manually without systemd:
+5. Run the scanner:
 ```bash
 python3 stig_scanner.py
 ```
 
-The script will:
-- Download the latest DISA STIG benchmark
-- Perform an initial scan
-- Generate a baseline report
-- Schedule monthly scans
-
 ## Reports
 
 Reports are stored in the `reports` directory:
-- HTML reports: Detailed findings for each scan
-- XML reports: Raw scan data
-- Monthly trend analysis graphs
-- Docker container security reports (JSON format)
+- HTML reports: Human-readable detailed findings
+- XML reports: Machine-readable raw scan data
 
-## Scheduling
+Each scan generates:
+- A timestamped HTML report with detailed findings
+- A timestamped XML report with raw data
+- A compliance summary showing:
+  - Total number of rules checked
+  - Number of passed rules
+  - Number of failed rules
+  - Overall compliance rate
 
-The service performs the following scheduled tasks:
-- STIG compliance scan: Monthly at 00:00
-- Monthly report generation: Monthly at 01:00
-- Docker container security scan: Daily at 02:00
+## Troubleshooting
+
+1. Docker permission issues:
+   - Ensure the reports directory has proper permissions
+   - The Docker container runs as a non-root user for security
+
+2. STIG file issues:
+   - Verify the STIG zip file is for Ubuntu 22.04
+   - Check that the zip file contains the XCCDF benchmark XML
+
+3. OpenSCAP errors:
+   - The --privileged flag is required for system checks
+   - Some checks may be skipped if they require additional system access
 
 ## Security Considerations
 
