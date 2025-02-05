@@ -15,7 +15,7 @@ This tool performs automated STIG (Security Technical Implementation Guide) comp
 ## Prerequisites
 
 - Ubuntu 22.04 LTS
-- Python 3.8 or higher
+- Python 3.10 or higher
 - sudo privileges (for system scanning)
 - Docker (optional, for container scanning)
 
@@ -23,8 +23,8 @@ This tool performs automated STIG (Security Technical Implementation Guide) comp
 
 1. Clone this repository:
 ```bash
-git clone [repository-url]
-cd ubuntu-stig-scanner
+git clone https://github.com/hspurlock/ubuntuStig.git
+cd ubuntuStig
 ```
 
 2. Install Python dependencies:
@@ -38,11 +38,16 @@ sudo apt-get update
 sudo apt-get install -y libopenscap8 openscap-scanner ssg-base ssg-debderived
 ```
 
+4. Download latest STIG benchmark:
+```bash
+wget https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/U_CAN_Ubuntu_22-04_LTS_V2R2_STIG.zip -O U_CAN_Ubuntu_22-04_LTS_V2R2_STIG.zip
+```
+
 ## Running as a Systemd Service
 
 1. Copy the service file to systemd directory:
 ```bash
-sudo cp ubuntu-stig-scanner.service /etc/systemd/system/
+sudo cp ubuntuStig.service /etc/systemd/system/
 ```
 
 2. Reload systemd daemon:
@@ -52,18 +57,18 @@ sudo systemctl daemon-reload
 
 3. Enable and start the service:
 ```bash
-sudo systemctl enable ubuntu-stig-scanner
-sudo systemctl start ubuntu-stig-scanner
+sudo systemctl enable ubuntuStig
+sudo systemctl start ubuntuStig
 ```
 
 4. Check service status:
 ```bash
-sudo systemctl status ubuntu-stig-scanner
+sudo systemctl status ubuntuStig
 ```
 
 Service logs can be viewed using:
 ```bash
-sudo journalctl -u ubuntu-stig-scanner
+sudo journalctl -u ubuntuStig
 ```
 
 ## Manual Usage
