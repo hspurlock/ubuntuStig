@@ -13,6 +13,13 @@ class STIGChecker:
     def __init__(self, xccdf_file: str):
         self.xccdf_file = xccdf_file
         self.rules = []
+        self.benchmark_info = {
+            'title': '',
+            'description': '',
+            'version': '',
+            'release_date': '',
+            'publisher': ''
+        }
         self.parse_xccdf()
 
     def parse_xccdf(self):
@@ -22,6 +29,25 @@ class STIGChecker:
         
         # Handle XML namespace
         ns = {'xccdf': 'http://checklists.nist.gov/xccdf/1.1'}
+        
+        # Extract benchmark information
+        benchmark = root.find('.//xccdf:Benchmark', ns) or root
+        
+        if benchmark is not None:
+            self.benchmark_info['title'] = benchmark.find('.//xccdf:title', ns).text if benchmark.find('.//xccdf:title', ns) is not None else 'STIG Compliance Benchmark'
+            self.benchmark_info['version'] = benchmark.get('version') or ''
+            
+            description = benchmark.find('.//xccdf:description', ns)
+            self.benchmark_info['description'] = description.text if description is not None else ''
+            
+            # Try to find publisher or creator information
+            publisher = benchmark.find('.//xccdf:publisher', ns) or benchmark.find('.//xccdf:creator', ns)
+            self.benchmark_info['publisher'] = publisher.text if publisher is not None else 'Unknown'
+            
+            # Try to find release date information
+            status = benchmark.find('.//xccdf:status', ns)
+            if status is not None and 'date' in status.attrib:
+                self.benchmark_info['release_date'] = status.get('date')
         
         # Find all Rule elements
         for rule in root.findall('.//xccdf:Rule', ns):
@@ -196,6 +222,13 @@ GREEN='\\033[0;32m'
 YELLOW='\\033[1;33m'
 NC='\\033[0m' # No Color
 
+# Benchmark information
+BENCHMARK_TITLE="''' + self.benchmark_info['title'].replace('"', '\\"') + '''"
+BENCHMARK_DESC="''' + self.benchmark_info['description'].replace('"', '\\"') + '''"
+BENCHMARK_VERSION="''' + self.benchmark_info['version'].replace('"', '\\"') + '''"
+BENCHMARK_PUBLISHER="''' + self.benchmark_info['publisher'].replace('"', '\\"') + '''"
+BENCHMARK_DATE="''' + self.benchmark_info['release_date'].replace('"', '\\"') + '''"
+
 # Results array
 declare -A results
 declare -A titles
@@ -334,10 +367,55 @@ generate_report() {
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        .header-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 5px solid #2c3e50;
+        }
+        .header-info h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            border-bottom: none;
+        }
+        .header-info p {
+            margin: 5px 0;
+        }
+        .header-meta {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .header-meta div {
+            margin-right: 20px;
+            margin-bottom: 10px;
+        }
+        .header-meta strong {
+            color: #2c3e50;
+        }
     </style>
 </head>
 <body>
     <h1>STIG Compliance Report</h1>
+EOL
+
+    # Add benchmark information header
+    cat >> "$RESULTS_DIR/report.html" << EOL
+    <div class="header-info">
+        <h2>${BENCHMARK_TITLE}</h2>
+        <p>${BENCHMARK_DESC}</p>
+        <div class="header-meta">
+            <div><strong>Version:</strong> ${BENCHMARK_VERSION}</div>
+            <div><strong>Publisher:</strong> ${BENCHMARK_PUBLISHER}</div>
+            <div><strong>Release Date:</strong> ${BENCHMARK_DATE}</div>
+            <div><strong>Scan Date:</strong> $(date)</div>
+            <div><strong>Hostname:</strong> $(hostname)</div>
+            <div><strong>OS:</strong> $(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | tr -d '"')</div>
+        </div>
+    </div>
 EOL
 
     # Add summary section
