@@ -1,133 +1,157 @@
-# Ubuntu 22.04 STIG Compliance Scanner
+# STIG Compliance Checker
 
-This tool performs automated STIG (Security Technical Implementation Guide) compliance scanning for Ubuntu 22.04 systems using OpenSCAP. It can be run directly on the host system or within a Docker container.
+This tool generates and runs automated compliance checks for Ubuntu STIG requirements based on XCCDF files.
 
-## Features
+## Requirements
 
-- Automated STIG compliance scanning using OpenSCAP
-- Support for any Ubuntu 22.04 STIG benchmark zip file
-- Detailed HTML and XML reports
-- Compliance statistics and analysis
-- Docker container support
-- Profile-based scanning
+- Python 3.6+
+- Root access (sudo) for running compliance checks
+- Required Python packages (install via `pip install -r requirements.txt`):
+  - lxml
+  - xmltodict
 
-## Prerequisites
+## Available Scripts
 
-- Ubuntu 22.04 LTS (for direct installation)
-- Python 3.10 or higher (for direct installation)
-- Docker (for container-based execution)
-- STIG benchmark file for Ubuntu 22.04
+Two versions of the checker are provided:
 
-## Docker Execution (Recommended)
+1. `stig_checker_html.py`: Generates an HTML report with a modern, interactive interface
+2. `stig_checker_json.py`: Generates a JSON report for programmatic processing
 
-1. Clone this repository:
-```bash
-git clone https://github.com/hspurlock/ubuntuStig.git
-cd ubuntuStig
-```
+## Usage
 
-2. Download the STIG benchmark:
-```bash
-wget https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/U_CAN_Ubuntu_22-04_LTS_V2R2_STIG.zip
-```
-
-3. Build the Docker image:
-```bash
-docker build -t ubuntu-stig-scanner .
-```
-
-4. Run the scanner:
-```bash
-docker run --privileged -v $(pwd)/reports:/app/reports ubuntu-stig-scanner
-```
-
-Additional Docker options:
-- Specify a different STIG profile:
-```bash
-docker run --privileged -v $(pwd)/reports:/app/reports ubuntu-stig-scanner python3 stig_scanner.py --profile MAC-1_Classified
-```
-
-- Available profiles:
-  - MAC-1_Public (default)
-  - MAC-1_Classified
-  - MAC-1_Sensitive
-  - MAC-2_Public
-  - MAC-2_Classified
-  - MAC-2_Sensitive
-  - MAC-3_Public
-  - MAC-3_Classified
-  - MAC-3_Sensitive
-
-- Mount a custom STIG zip file:
-```bash
-docker run --privileged \
-  -v $(pwd)/reports:/app/reports \
-  -v /path/to/custom/stig.zip:/app/stig_files/stig.zip \
-  ubuntu-stig-scanner
-```
-
-## Direct Installation
-
-1. Clone this repository:
-```bash
-git clone https://github.com/hspurlock/ubuntuStig.git
-cd ubuntuStig
-```
-
-2. Install Python dependencies:
+1. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Install system dependencies:
+2. Generate compliance check script (choose one):
 ```bash
-sudo apt-get update
-sudo apt-get install -y libopenscap8 openscap-scanner ssg-base ssg-debderived
+# For HTML report
+python stig_checker_html.py path/to/xccdf.xml
+
+# For JSON report
+python stig_checker_json.py path/to/xccdf.xml
 ```
 
-4. Download STIG benchmark:
+This will create a bash script named after your input file (e.g., `U_CAN_Ubuntu_24-04_LTS_STIG_V1R1_Manual-xccdf_stig_check.sh`) that performs the compliance checks.
+
+3. Run the compliance checks (requires root privileges):
 ```bash
-wget https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/U_CAN_Ubuntu_22-04_LTS_V2R2_STIG.zip -O U_CAN_Ubuntu_22-04_LTS_V2R2_STIG.zip
+sudo ./[generated-script-name].sh
 ```
 
-5. Run the scanner:
-```bash
-python3 stig_scanner.py
+## Features
+
+- Automatic script naming based on input XCCDF file
+- Real-time check execution with color-coded output:
+  - 🟢 Green: PASS
+  - 🔴 Red: FAIL
+  - 🟡 Yellow: MANUAL CHECK NEEDED
+- Graceful handling of interrupted checks (Ctrl+C)
+- Detailed JSON report generation
+- Command timeout handling (5s per command)
+- Automatic detection of commands requiring manual verification
+
+## Output
+
+The script provides:
+1. Real-time results with color-coded status for each check in the terminal
+2. A comprehensive HTML report in `stig_results/report.html` featuring:
+   - Summary statistics with color-coded status indicators
+   - Detailed results table with rule IDs, titles, and status badges
+   - Modern, responsive design for easy reading
+   - Timestamp of report generation
+
+## Report Formats
+
+### HTML Report (`stig_checker_html.py`)
+
+Provides a comprehensive, visually appealing report with:
+
+1. Summary Section
+   - Total rules checked
+   - Number of passed checks (green)
+   - Number of failed checks (red)
+   - Number of manual checks needed (yellow)
+
+2. Detailed Results Table
+   - Rule ID and Title
+   - Status Badge (color-coded)
+     - PASS: Green badge
+     - FAIL: Red badge
+     - MANUAL: Yellow badge
+
+3. Visual Features
+   - Modern, responsive design
+   - Color-coded status indicators
+   - Interactive table with hover effects
+   - Proper text wrapping for readability
+   - Report generation timestamp
+
+### JSON Report (`stig_checker_json.py`)
+
+Provides a structured data format ideal for:
+- Programmatic analysis
+- Integration with other tools
+- Custom report generation
+- Data processing and analytics
+
+JSON Structure:
+```json
+{
+  "RULE-ID": {
+    "status": "pass|fail|manual",
+    "title": "Rule Title"
+  }
+}
 ```
 
-## Reports
+## Core Features
 
-Reports are stored in the `reports` directory:
-- HTML reports: Human-readable detailed findings
-- XML reports: Machine-readable raw scan data
+### Execution
+- Parses XCCDF files to extract STIG requirements
+- Automatic script naming based on input file
+- Supports both HTML and JSON report formats
+- Real-time execution feedback in terminal
+- Color-coded terminal output:
+  - 🟢 Green: PASS
+  - 🔴 Red: FAIL
+  - 🟡 Yellow: MANUAL CHECK NEEDED
+- Command timeout handling (5s per command)
+- Graceful interruption handling (Ctrl+C)
 
-Each scan generates:
-- A timestamped HTML report with detailed findings
-- A timestamped XML report with raw data
-- A compliance summary showing:
-  - Total number of rules checked
-  - Number of passed rules
-  - Number of failed rules
-  - Overall compliance rate
+### Security
+- Root privilege enforcement for system checks
+- Secure file permissions:
+  - Results directory: 755
+  - Report files: 644
+- Safe command execution practices
+- Automatic sudo removal (runs as root)
 
-## Troubleshooting
+## Error Handling
 
-1. Docker permission issues:
-   - Ensure the reports directory has proper permissions
-   - The Docker container runs as a non-root user for security
+### Command Execution
+- Timeout after 5 seconds for hanging commands
+- Automatic manual flag for commands with placeholders
+- Graceful handling of command failures
 
-2. STIG file issues:
-   - Verify the STIG zip file is for Ubuntu 22.04
-   - Check that the zip file contains the XCCDF benchmark XML
+### Input Validation
+- Validates XCCDF file format
+- Checks for root privileges
+- Verifies file permissions
 
-3. OpenSCAP errors:
-   - The --privileged flag is required for system checks
-   - Some checks may be skipped if they require additional system access
+### Runtime Protection
+- Handles script interruption (Ctrl+C)
+- Generates partial reports if interrupted
+- Maintains consistent file permissions
+- Cleans up temporary files
 
-## Security Considerations
+## Best Practices
 
-- This tool requires sudo privileges to perform system scans
-- Reports may contain sensitive system information
-- Ensure proper access controls are in place for the reports directory
-- The systemd service runs as root to perform system-level scans
-- Docker socket access is required for container scanning
+1. Always run compliance checks with root privileges
+2. Review manual check requirements thoroughly
+3. Keep XCCDF files up to date
+4. Store reports securely
+5. Use HTML reports for human review
+6. Use JSON reports for automation
+
