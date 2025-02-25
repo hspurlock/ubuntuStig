@@ -12,10 +12,9 @@ This tool generates and runs automated compliance checks for Ubuntu STIG require
 
 ## Available Scripts
 
-Two versions of the checker are provided:
+The checker is provided as:
 
 1. `stig_checker_html.py`: Generates an HTML report with a modern, interactive interface
-2. `stig_checker_json.py`: Generates a JSON report for programmatic processing
 
 ## Usage
 
@@ -24,13 +23,9 @@ Two versions of the checker are provided:
 pip install -r requirements.txt
 ```
 
-2. Generate compliance check script (choose one):
+2. Generate compliance check script:
 ```bash
-# For HTML report
 python stig_checker_html.py path/to/xccdf.xml
-
-# For JSON report
-python stig_checker_json.py path/to/xccdf.xml
 ```
 
 This will create a bash script named after your input file (e.g., `U_CAN_Ubuntu_24-04_LTS_STIG_V1R1_Manual-xccdf_stig_check.sh`) that performs the compliance checks.
@@ -44,11 +39,11 @@ sudo ./[generated-script-name].sh
 
 - Automatic script naming based on input XCCDF file
 - Real-time check execution with color-coded output:
-  - 🟢 Green: PASS
-  - 🔴 Red: FAIL
-  - 🟡 Yellow: MANUAL CHECK NEEDED
+  - Green: PASS
+  - Red: FAIL
+  - Yellow: MANUAL CHECK NEEDED
 - Graceful handling of interrupted checks (Ctrl+C)
-- Detailed JSON report generation
+- Detailed report generation
 - Command timeout handling (5s per command)
 - Automatic detection of commands requiring manual verification
 
@@ -62,9 +57,9 @@ The script provides:
    - Modern, responsive design for easy reading
    - Timestamp of report generation
 
-## Report Formats
+## Report Format
 
-### HTML Report (`stig_checker_html.py`)
+### HTML Report
 
 Provides a comprehensive, visually appealing report with:
 
@@ -88,35 +83,17 @@ Provides a comprehensive, visually appealing report with:
    - Proper text wrapping for readability
    - Report generation timestamp
 
-### JSON Report (`stig_checker_json.py`)
-
-Provides a structured data format ideal for:
-- Programmatic analysis
-- Integration with other tools
-- Custom report generation
-- Data processing and analytics
-
-JSON Structure:
-```json
-{
-  "RULE-ID": {
-    "status": "pass|fail|manual",
-    "title": "Rule Title"
-  }
-}
-```
-
 ## Core Features
 
 ### Execution
 - Parses XCCDF files to extract STIG requirements
 - Automatic script naming based on input file
-- Supports both HTML and JSON report formats
+- HTML report format
 - Real-time execution feedback in terminal
 - Color-coded terminal output:
-  - 🟢 Green: PASS
-  - 🔴 Red: FAIL
-  - 🟡 Yellow: MANUAL CHECK NEEDED
+  - Green: PASS
+  - Red: FAIL
+  - Yellow: MANUAL CHECK NEEDED
 - Command timeout handling (5s per command)
 - Graceful interruption handling (Ctrl+C)
 
@@ -146,6 +123,54 @@ JSON Structure:
 - Maintains consistent file permissions
 - Cleans up temporary files
 
+## Docker Container Scanning
+
+You can use this tool to scan Docker containers for STIG compliance. Since containers often have a reduced subset of the full OS, some checks may fail or not be applicable. However, this approach still provides valuable security insights.
+
+### Scanning Docker Containers
+
+1. Generate the compliance check script:
+```bash
+python stig_checker_html.py -x path/to/xccdf.xml -o container_scan.sh
+```
+
+2. Run the script inside a Docker container:
+```bash
+# Method 1: Copy and execute the script
+docker cp container_scan.sh container_name:/tmp/
+docker exec -it container_name bash -c "chmod +x /tmp/container_scan.sh && /tmp/container_scan.sh"
+
+# Method 2: Direct execution (no file copy needed)
+docker exec -it container_name bash -c "$(cat container_scan.sh)"
+```
+
+3. Retrieve and analyze results:
+```bash
+# Retrieve HTML report
+docker cp container_name:/stig_results/report.html ./container_report.html
+```
+
+### Considerations for Container Scanning
+
+- **Limited Environment**: Containers typically have a minimal OS footprint, so many checks may fail
+- **No systemd**: Most containers don't use systemd, so service-related checks will fail
+- **Root Context**: Container processes often run as root, which may affect permission checks
+- **Missing Tools**: Standard diagnostic tools may be absent in minimal container images
+- **Post-processing**: Consider filtering results to focus on container-relevant security controls
+
+### Handling Container-Specific Failures
+
+When reviewing container scan results:
+
+1. **Expected Failures**: Document which failures are expected in container environments
+2. **Custom Baseline**: Create a container-specific baseline of acceptable check results
+3. **Focus Areas**: Pay special attention to:
+   - File permissions
+   - User/group settings 
+   - Network configurations
+   - Mount points
+   - Package integrity
+
 ## Best Practices
 
 1. Always run compliance checks with root privileges
@@ -153,5 +178,3 @@ JSON Structure:
 3. Keep XCCDF files up to date
 4. Store reports securely
 5. Use HTML reports for human review
-6. Use JSON reports for automation
-

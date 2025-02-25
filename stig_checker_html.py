@@ -46,15 +46,135 @@ class STIGChecker:
             })
 
     def extract_commands(self, check_content: str) -> List[str]:
-        """Extract commands from check content."""
+        """Extract commands from check content.
+        
+        This method uses several patterns to identify command lines in STIG check content,
+        including lines starting with:
+        - $ (common shell prompt)
+        - # (root shell prompt)
+        - sudo (commands requiring elevated privileges)
+        - grep, find, awk, cat, ls (common commands)
+        - systemctl, service (service management)
+        - verification commands like "verify" followed by commands
+        
+        It also attempts to handle multi-line commands connected with backslashes or pipes.
+        
+        Args:
+            check_content: The text content of a STIG check
+            
+        Returns:
+            A list of extracted commands
+        """
         commands = []
-        for line in check_content.split('\n'):
-            line = line.strip()
-            if line.startswith('$'):
-                # Remove the leading $ and trim
-                cmd = line[1:].strip()
-                commands.append(cmd)
-        return commands
+        current_command = ""
+        in_multi_line = False
+        
+        common_command_prefixes = [
+            'grep', 'find', 'awk', 'sed', 'cat', 'ls', 'ps', 'netstat', 'systemctl',
+            'ausearch', 'auditctl', 'stat', 'chown', 'chmod', 'chgrp', 'mount',
+            'service', 'apt', 'dpkg', 'rpm', 'yum', 'dnf', 'sysctl', 'uname',
+            'check', 'verify'
+        ]
+        
+        shell_prompt_patterns = ['$', '#', '>', '%']
+        
+        lines = check_content.split('\n')
+        for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            
+            # Skip empty lines
+            if not stripped_line:
+                continue
+                
+            # Continue collecting multi-line command
+            if in_multi_line:
+                current_command += " " + stripped_line
+                
+                # Check if this is the end of the multi-line command
+                if not (stripped_line.endswith('\\') or stripped_line.endswith('|') or 
+                        stripped_line.endswith('&&') or stripped_line.endswith('||')):
+                    in_multi_line = False
+                    commands.append(current_command)
+                    current_command = ""
+                continue
+            
+            # Check for lines starting with shell prompts
+            prompt_match = False
+            for prompt in shell_prompt_patterns:
+                if stripped_line.startswith(prompt + ' '):
+                    cmd = stripped_line[len(prompt) + 1:].strip()
+                    if cmd:
+                        if cmd.endswith('\\') or cmd.endswith('|') or cmd.endswith('&&') or cmd.endswith('||'):
+                            current_command = cmd
+                            in_multi_line = True
+                        else:
+                            commands.append(cmd)
+                    prompt_match = True
+                    break
+            
+            if prompt_match:
+                continue
+                
+            # Check for lines starting with sudo
+            if stripped_line.startswith('sudo '):
+                if stripped_line.endswith('\\') or stripped_line.endswith('|') or stripped_line.endswith('&&') or stripped_line.endswith('||'):
+                    current_command = stripped_line
+                    in_multi_line = True
+                else:
+                    commands.append(stripped_line)
+                continue
+            
+            # Check for common command prefixes
+            for prefix in common_command_prefixes:
+                if (stripped_line.startswith(prefix + ' ') or 
+                    ' ' + prefix + ' ' in stripped_line[:20]):  # Look for command in first 20 chars
+                    
+                    # Avoid collecting text that mentions commands but isn't actually a command
+                    skip_patterns = ['verify that', 'check if', 'ensure that', 'should show', 'should return', 'should contain']
+                    if any(pattern in stripped_line.lower() for pattern in skip_patterns):
+                        continue
+                    
+                    # Try to extract just the command part if there's explanatory text
+                    command_parts = stripped_line.split('. ', 1)
+                    command_to_add = command_parts[-1] if len(command_parts) > 1 else stripped_line
+                    
+                    if command_to_add.endswith('\\') or command_to_add.endswith('|') or command_to_add.endswith('&&') or command_to_add.endswith('||'):
+                        current_command = command_to_add
+                        in_multi_line = True
+                    else:
+                        commands.append(command_to_add)
+                    break
+            
+            # Look for verification instructions that might contain commands
+            if 'run the following command' in stripped_line.lower():
+                # Try to get the command from the next line
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1].strip()
+                    if next_line and not any(next_line.startswith(p) for p in ['if ', 'then ', 'else ', 'fi ']):
+                        commands.append(next_line)
+        
+        # Add final multi-line command if we ended with one
+        if current_command:
+            commands.append(current_command)
+        
+        # Filter out obvious non-commands and clean up commands
+        filtered_commands = []
+        for cmd in commands:
+            # Skip if too short - likely not a real command
+            if len(cmd) < 3:
+                continue
+                
+            # Skip if it's just words without command syntax
+            if not any(char in cmd for char in ['/', '-', '|', '>', '<', '=']):
+                # But allow common single commands
+                if not any(cmd.startswith(prefix) for prefix in common_command_prefixes):
+                    continue
+            
+            # Clean up the command
+            cmd = cmd.replace('\\', ' ').strip()  # Replace trailing backslashes
+            filtered_commands.append(cmd)
+            
+        return filtered_commands
 
     def generate_bash_script(self) -> str:
         """Generate a bash script to perform the checks."""
