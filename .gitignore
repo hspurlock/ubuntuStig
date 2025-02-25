@@ -34,7 +34,7 @@ ENV/
 
 # Project specific
 stig_results/
-*_stig_check.sh
+# *_stig_check.sh
 *.json
 *.html
 
