@@ -14,7 +14,7 @@ This tool generates and runs automated compliance checks for Ubuntu STIG require
 
 The checker is provided as:
 
-1. `stig_checker_html.py`: Generates an HTML report with a modern, interactive interface
+1. `stig_checker_html.py`: The main script that generates an HTML report with a modern, interactive interface
 
 ## Usage
 
@@ -23,12 +23,10 @@ The checker is provided as:
 pip install -r requirements.txt
 ```
 
-2. Generate compliance check script:
+2. For HTML Report Generation:
 ```bash
 python stig_checker_html.py path/to/xccdf.xml
 ```
-
-This will create a bash script named after your input file (e.g., `U_CAN_Ubuntu_24-04_LTS_STIG_V1R1_Manual-xccdf_stig_check.sh`) that performs the compliance checks.
 
 3. Run the compliance checks (requires root privileges):
 ```bash
@@ -46,6 +44,12 @@ sudo ./[generated-script-name].sh
 - Detailed report generation
 - Command timeout handling (5s per command)
 - Automatic detection of commands requiring manual verification
+
+## Supported XCCDF Files
+
+The tool has been tested with the following XCCDF files:
+- `U_CAN_Ubuntu_24-04_LTS_STIG_V1R1_Manual-xccdf.xml`: Ubuntu 24.04 LTS STIG (Version 1 Release 1)
+- `U_CAN_Ubuntu_22-04_LTS_STIG_V2R2_Manual-xccdf.xml`: Ubuntu 22.04 LTS STIG (Version 2 Release 2)
 
 ## Output
 
@@ -141,40 +145,35 @@ docker cp container_scan.sh container_name:/tmp/
 docker exec -it container_name bash -c "chmod +x /tmp/container_scan.sh && /tmp/container_scan.sh"
 
 # Method 2: Direct execution (no file copy needed)
-docker exec -it container_name bash -c "$(cat container_scan.sh)"
+cat container_scan.sh | docker exec -i container_name bash
 ```
 
-3. Retrieve and analyze results:
-```bash
-# Retrieve HTML report
-docker cp container_name:/stig_results/report.html ./container_report.html
-```
+### Container-Specific Considerations
 
-### Considerations for Container Scanning
-
-- **Limited Environment**: Containers typically have a minimal OS footprint, so many checks may fail
-- **No systemd**: Most containers don't use systemd, so service-related checks will fail
-- **Root Context**: Container processes often run as root, which may affect permission checks
+- **Reduced Environment**: Containers typically have a minimal OS installation
+- **Privileged Mode**: Some checks may require running the container in privileged mode
 - **Missing Tools**: Standard diagnostic tools may be absent in minimal container images
 - **Post-processing**: Consider filtering results to focus on container-relevant security controls
 
 ### Handling Container-Specific Failures
 
-When reviewing container scan results:
+For optimal container security assessment:
 
-1. **Expected Failures**: Document which failures are expected in container environments
-2. **Custom Baseline**: Create a container-specific baseline of acceptable check results
-3. **Focus Areas**: Pay special attention to:
+1. Focus on container-relevant checks:
    - File permissions
-   - User/group settings 
-   - Network configurations
-   - Mount points
-   - Package integrity
+   - Package versions
+   - Network settings
+   - User privileges
 
-## Best Practices
+2. Consider supplementing with container-specific security tools:
+   - Docker Bench for Security
+   - Clair
+   - Trivy
 
-1. Always run compliance checks with root privileges
-2. Review manual check requirements thoroughly
-3. Keep XCCDF files up to date
-4. Store reports securely
-5. Use HTML reports for human review
+## Future Development
+
+- Support for additional Linux distributions
+- Integration with CI/CD pipelines
+- Export formats for security information management systems
+- Automatic remediation suggestions
+- Customizable check profiles
