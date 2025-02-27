@@ -203,279 +203,177 @@ class STIGChecker:
         return filtered_commands
 
     def generate_bash_script(self) -> str:
-        """Generate a bash script to perform the checks."""
-        script_header = '''#!/bin/bash
+        """Generate a Bash script to check STIG compliance."""
+        # Header with usage information, colors, and trap
+        benchmark_title = self.benchmark_info['title'].replace('"', '\\"') if 'title' in self.benchmark_info else "Unknown"
+        benchmark_version = self.benchmark_info['version'].replace('"', '\\"') if 'version' in self.benchmark_info else "Unknown"
+        benchmark_date = self.benchmark_info['release_date'].replace('"', '\\"') if 'release_date' in self.benchmark_info else "Unknown"
+        benchmark_publisher = self.benchmark_info['publisher'].replace('"', '\\"') if 'publisher' in self.benchmark_info else "Unknown"
+        benchmark_description = self.benchmark_info['description'].replace('"', '\\"') if 'description' in self.benchmark_info else "Unknown"
+        
+        script_header = f'''#!/bin/bash
 
 # STIG Compliance Check Script
-# Generated from XCCDF file: ''' + os.path.basename(self.xccdf_file) + '''
+# Generated automatically by STIG Checker Tool
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    echo "This script must be run as root to perform all checks properly."
-    echo "Please run with: sudo $0"
-    exit 1
+# Check for root privileges
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root to perform all checks"
+   exit 1
 fi
 
-# Colors for output
+# Define colors for output
 RED='\\033[0;31m'
 GREEN='\\033[0;32m'
-YELLOW='\\033[1;33m'
+YELLOW='\\033[0;33m'
 NC='\\033[0m' # No Color
 
-# Benchmark information
-BENCHMARK_TITLE="''' + self.benchmark_info['title'].replace('"', '\\"') + '''"
-BENCHMARK_DESC="''' + self.benchmark_info['description'].replace('"', '\\"') + '''"
-BENCHMARK_VERSION="''' + self.benchmark_info['version'].replace('"', '\\"') + '''"
-BENCHMARK_PUBLISHER="''' + self.benchmark_info['publisher'].replace('"', '\\"') + '''"
-BENCHMARK_DATE="''' + self.benchmark_info['release_date'].replace('"', '\\"') + '''"
+# Handle interrupt
+trap 'echo -e "\\n${{RED}}Script interrupted by user${{NC}}"; exit 1' INT
 
-# Results array
+# Initialize arrays for results
 declare -A results
 declare -A titles
 
-# Trap Ctrl+C and cleanup
-trap cleanup INT
+# Benchmark information
+BENCHMARK_TITLE="{benchmark_title}"
+BENCHMARK_VERSION="{benchmark_version}"
+BENCHMARK_DATE="{benchmark_date}"
+BENCHMARK_PUBLISHER="{benchmark_publisher}"
+BENCHMARK_DESC="{benchmark_description}"
 
-cleanup() {
-    echo -e "\\n\\nScript interrupted. Generating report with current results..."
-    generate_report
-    exit 1
-}
+echo "Starting STIG compliance checks..."
+echo "Benchmark: $BENCHMARK_TITLE ($BENCHMARK_VERSION)"
+echo "Publisher: $BENCHMARK_PUBLISHER"
+echo "Date: $BENCHMARK_DATE"
 
-run_check() {
+run_check() {{
     local cmd="$1"
+    local context="${{2:-positive}}"  # positive or negative context
     
-    # Check if command contains placeholders (e.g., <user>)
-    if [[ "$cmd" == *"<"*">"* ]]; then
+    # Check if command contains placeholders or needs manual intervention
+    if [[ "$cmd" == *"<"*">"* || "$cmd" == *"manually verify"* || "$cmd" == *"manual"* ]]; then
         echo "manual"
         return
     fi
     
-    # Execute command with a timeout
-    timeout 5s bash -c "$cmd" &>/dev/null
+    # Capture command output for inspection
+    output=$(timeout 15s bash -c "$cmd" 2>&1)
     local exit_code=$?
     
-    if [ $exit_code -eq 0 ]; then
-        echo "pass"
-    elif [ $exit_code -eq 124 ]; then
-        # Command timed out
+    # Check for timeout
+    if [ $exit_code -eq 124 ]; then
         echo "manual"
-    else
-        echo "fail"
+        return
     fi
-}
+    
+    # Save the command output to a temp file for analysis
+    echo "$output" > /tmp/cmd_output.txt
+    
+    # Keep original output (first 200 chars) for logging
+    local short_output="${{output:0:200}}"
+    if [ ${{#output}} -gt 200 ]; then
+        short_output+="..."
+    fi
+    echo "Command output (truncated): $short_output"
+    
+    # Interpret results based on command type and context
+    if [[ "$cmd" == *"grep"* ]]; then
+        # For grep commands:
+        # Exit code 0 = pattern found, 1 = not found
+        # In negative context (shouldn't exist), 1 is PASS
+        # In positive context (should exist), 0 is PASS
+        if [[ "$context" == "negative" && $exit_code -eq 1 ]]; then
+            echo "pass"  # Pattern shouldn't exist and wasn't found (exit code 1)
+        elif [[ "$context" == "positive" && $exit_code -eq 0 ]]; then
+            echo "pass"  # Pattern should exist and was found (exit code 0)
+        else
+            echo "fail"
+        fi
+    elif [[ "$cmd" == *"find"* ]]; then
+        # For find commands:
+        # Exit code 0 with output = files found
+        # No output usually means nothing found
+        if [[ "$context" == "negative" && -z "$output" ]]; then
+            echo "pass"  # Should not find files and none found
+        elif [[ "$context" == "positive" && ! -z "$output" ]]; then
+            echo "pass"  # Should find files and some found
+        else
+            echo "fail"
+        fi
+    elif [[ "$cmd" == *"systemctl is-enabled"* || "$cmd" == *"systemctl --quiet is-enabled"* ]]; then
+        # For systemctl is-enabled commands
+        if [[ "$context" == "negative" && $exit_code -ne 0 ]]; then
+            echo "pass"  # Service should not be enabled and isn't (non-zero exit)
+        elif [[ "$context" == "positive" && $exit_code -eq 0 ]]; then
+            echo "pass"  # Service should be enabled and is (zero exit)
+        else
+            echo "fail"
+        fi
+    elif [[ "$cmd" == *"systemctl is-active"* || "$cmd" == *"systemctl --quiet is-active"* ]]; then
+        # For systemctl is-active commands
+        if [[ "$context" == "negative" && $exit_code -ne 0 ]]; then
+            echo "pass"  # Service should not be active and isn't (non-zero exit)
+        elif [[ "$context" == "positive" && $exit_code -eq 0 ]]; then
+            echo "pass"  # Service should be active and is (zero exit)
+        else
+            echo "fail"
+        fi
+    else
+        # Try to intelligently determine correct outcome
+        if [[ "$context" == "negative" ]]; then
+            # In negative checking, often non-zero exit code is good
+            if [[ $exit_code -ne 0 ]]; then
+                echo "pass"
+            else
+                echo "fail"
+            fi
+        else
+            # Default case - positive checking
+            if [[ $exit_code -eq 0 ]]; then
+                echo "pass"
+            else
+                echo "fail"
+            fi
+        fi
+    fi
+}}
 
-log_result() {
+log_result() {{
     local rule_id="$1"
     local status="$2"
     local title="$3"
     
     if [ "$status" == "pass" ]; then
-        echo -e "${GREEN}[PASS]${NC} $rule_id: $title"
+        echo -e "${{GREEN}}[PASS]${{NC}} $rule_id: $title"
         results["$rule_id"]="pass"
     elif [ "$status" == "manual" ]; then
-        echo -e "${YELLOW}[MANUAL CHECK NEEDED]${NC} $rule_id: $title"
+        echo -e "${{YELLOW}}[MANUAL CHECK NEEDED]${{NC}} $rule_id: $title"
         results["$rule_id"]="manual"
     else
-        echo -e "${RED}[FAIL]${NC} $rule_id: $title"
+        echo -e "${{RED}}[FAIL]${{NC}} $rule_id: $title"
         results["$rule_id"]="fail"
     fi
     titles["$rule_id"]="$title"
-}
+}}
 
-generate_report() {
-    # Generate summary report
-    echo -e "\\nSTIG Compliance Summary Report"
-    echo "================================"
-    echo -e "Total Rules Checked: ${#results[@]}"
-    pass_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "pass" || echo 0)
-    manual_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "manual" || echo 0)
-    fail_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "fail" || echo 0)
-    echo -e "Passed: $pass_count"
-    echo -e "Failed: $fail_count"
-    echo -e "Manual Checks Needed: $manual_count"
-
-    # Create results directory with proper permissions
-    RESULTS_DIR="stig_results"
-    mkdir -p "$RESULTS_DIR"
-    chmod 755 "$RESULTS_DIR"
-
-    # Generate HTML report
-    cat > "$RESULTS_DIR/report.html" << 'EOL'
-<!DOCTYPE html>
-<html>
-<head>
-    <title>STIG Compliance Report</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px; 
-            line-height: 1.6;
-            color: #333;
-        }
-        h1, h2 { 
-            color: #2c3e50; 
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-        }
-        .summary { 
-            background: #f8f9fa; 
-            padding: 20px; 
-            border-radius: 8px; 
-            margin: 20px 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .pass { color: #28a745; }
-        .fail { color: #dc3545; }
-        .manual { color: #ffc107; }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-top: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        th, td { 
-            padding: 12px 15px; 
-            text-align: left; 
-            border-bottom: 1px solid #dee2e6; 
-        }
-        th { 
-            background: #f8f9fa; 
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        tr:hover { background: #f8f9fa; }
-        .status-badge {
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-weight: bold;
-            display: inline-block;
-            min-width: 80px;
-            text-align: center;
-        }
-        .status-pass { background: #d4edda; color: #155724; }
-        .status-fail { background: #f8d7da; color: #721c24; }
-        .status-manual { background: #fff3cd; color: #856404; }
-        .timestamp {
-            margin-top: 20px;
-            color: #6c757d;
-            font-style: italic;
-        }
-        .title-cell {
-            max-width: 600px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .header-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 5px solid #2c3e50;
-        }
-        .header-info h2 {
-            margin-top: 0;
-            color: #2c3e50;
-            border-bottom: none;
-        }
-        .header-info p {
-            margin: 5px 0;
-        }
-        .header-meta {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            font-size: 0.9em;
-            color: #6c757d;
-        }
-        .header-meta div {
-            margin-right: 20px;
-            margin-bottom: 10px;
-        }
-        .header-meta strong {
-            color: #2c3e50;
-        }
-    </style>
-</head>
-<body>
-    <h1>STIG Compliance Report</h1>
-EOL
-
-    # Add benchmark information header
-    cat >> "$RESULTS_DIR/report.html" << EOL
-    <div class="header-info">
-        <h2>${BENCHMARK_TITLE}</h2>
-        <p>${BENCHMARK_DESC}</p>
-        <div class="header-meta">
-            <div><strong>Version:</strong> ${BENCHMARK_VERSION}</div>
-            <div><strong>Publisher:</strong> ${BENCHMARK_PUBLISHER}</div>
-            <div><strong>Release Date:</strong> ${BENCHMARK_DATE}</div>
-            <div><strong>Scan Date:</strong> $(date)</div>
-            <div><strong>Hostname:</strong> $(hostname)</div>
-            <div><strong>OS:</strong> $(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | tr -d '"')</div>
-        </div>
-    </div>
-EOL
-
-    # Add summary section
-    cat >> "$RESULTS_DIR/report.html" << EOL
-    <div class="summary">
-        <h2>Summary</h2>
-        <p><strong>Total Rules Checked:</strong> ${#results[@]}</p>
-        <p class="pass"><strong>Passed:</strong> $pass_count</p>
-        <p class="fail"><strong>Failed:</strong> $fail_count</p>
-        <p class="manual"><strong>Manual Checks Needed:</strong> $manual_count</p>
-    </div>
-    <h2>Detailed Results</h2>
-    <table>
-        <tr>
-            <th>Rule ID</th>
-            <th>Title</th>
-            <th>Status</th>
-        </tr>
-EOL
-
-    # Add results to the HTML table
-    for rule_id in "${!results[@]}"; do
-        status="${results[$rule_id]}"
-        title="${titles[$rule_id]}"
-        case $status in
-            "pass")
-                status_class="status-pass"
-                ;;
-            "fail")
-                status_class="status-fail"
-                ;;
-            "manual")
-                status_class="status-manual"
-                ;;
-        esac
-        echo "        <tr>" >> "$RESULTS_DIR/report.html"
-        echo "            <td>$rule_id</td>" >> "$RESULTS_DIR/report.html"
-        echo "            <td class='title-cell'>$title</td>" >> "$RESULTS_DIR/report.html"
-        echo "            <td><span class='status-badge $status_class'>${status^^}</span></td>" >> "$RESULTS_DIR/report.html"
-        echo "        </tr>" >> "$RESULTS_DIR/report.html"
+generate_report() {{
+    echo -e "\\n\\n--- Final Report ---"
+    echo -e "Benchmark: $BENCHMARK_TITLE ($BENCHMARK_VERSION)"
+    echo -e "Release Date: $BENCHMARK_DATE"
+    echo -e "Publisher: $BENCHMARK_PUBLISHER"
+    echo -e "Description: $BENCHMARK_DESC"
+    echo -e "\\nResults:"
+    for rule_id in "${{!results[@]}}"; do
+        echo -e "  $rule_id: ${{results[$rule_id]}} - ${{titles[$rule_id]}}"
     done
-
-    # Add footer with timestamp
-    cat >> "$RESULTS_DIR/report.html" << EOL
-    </table>
-    <p class="timestamp">Report generated on $(date)</p>
-</body>
-</html>
-EOL
-
-    chmod 644 "$RESULTS_DIR/report.html"
-
-    echo -e "\\nDetailed results have been saved to $RESULTS_DIR/report.html"
-}
+}}
 '''
 
         # Add check functions for each rule
         check_functions = ""
         for rule in self.rules:
-            if not rule['check']:
+            if 'check' not in rule or not rule['check']:
                 continue
 
             commands = self.extract_commands(rule['check'])
@@ -485,25 +383,45 @@ EOL
             check_function = f"""
 # {rule['id']}: {rule['title']}
 check_{rule['id'].replace('-', '_')}() {{
-    local status="fail"
+    echo -e "\\n\\nChecking rule {rule['id']}: {rule['title']}"
 """
             
             for cmd in commands:
+                # Look for context in check_content to determine if this is checking for presence or absence
+                cmd_context = "positive"  # Default to positive checking
+                check_lower = rule['check'].lower()
+                
+                if any(phrase in check_lower for phrase in [
+                    "should not exist", "must not exist", "shall not exist", 
+                    "should not be enabled", "must not be enabled", "should be disabled",
+                    "should not be running", "must not be running", "should be masked",
+                    "should not have", "must not have", "shall not have",
+                    "should be uninstalled", "must be uninstalled"
+                ]):
+                    cmd_context = "negative"  # Checking for absence
+                
                 # Escape any quotes in the command
                 escaped_cmd = cmd.replace('"', '\\"')
                 # Remove sudo as we're already running as root
                 escaped_cmd = escaped_cmd.replace('sudo ', '')
-                check_function += f"""
-    # Run command: {cmd}
-    status=$(run_check "{escaped_cmd}")
-    if [ "$status" == "manual" ]; then
-        break
-    fi
-"""
+                
+                # Add the command execution
+                check_function += f'\n    echo "Running: {cmd}"'
+                check_function += f'\n    result=$(run_check "{escaped_cmd}" "{cmd_context}")'
+                check_function += f'\n    if [ "$result" != "manual" ]; then'
+                check_function += f'\n        log_result "{rule["id"]}" "$result" "{rule["title"]}"'
+                check_function += f'\n        if [ "$result" == "pass" ]; then'
+                check_function += f'\n            return 0'
+                check_function += f'\n        fi'
+                check_function += f'\n    else'
+                check_function += f'\n        log_result "{rule["id"]}" "manual" "{rule["title"]}"'
+                check_function += f'\n        return 0'
+                check_function += f'\n    fi'
 
+            # If we get here, all commands have been run and none passed
             check_function += f"""
-    # Log result
-    log_result "{rule['id']}" "$status" "{rule['title']}"
+    # If none of the checks passed, mark as fail
+    log_result "{rule['id']}" "fail" "{rule['title']}"
 }}
 """
             check_functions += check_function
@@ -511,7 +429,7 @@ check_{rule['id'].replace('-', '_')}() {{
         # Add main execution section
         main_section = "\n# Execute all checks\n"
         for rule in self.rules:
-            if not rule['check']:
+            if 'check' not in rule or not rule['check']:
                 continue
             main_section += f"check_{rule['id'].replace('-', '_')}\n"
 
