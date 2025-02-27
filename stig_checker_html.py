@@ -317,10 +317,30 @@ generate_report() {
     echo -e "\\nSTIG Compliance Summary Report"
     echo "================================"
     echo -e "Total Rules Checked: ${#results[@]}"
-    pass_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "pass" || echo 0)
-    manual_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "manual" || echo 0)
-    fail_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "fail" || echo 0)
-    not_checked_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "not checked" || echo 0)
+    
+    # Count results by type, using proper quoting to handle spaces
+    pass_count=0
+    fail_count=0
+    manual_count=0
+    not_checked_count=0
+    
+    for status in "${results[@]}"; do
+        case "$status" in
+            "pass")
+                ((pass_count++))
+                ;;
+            "fail")
+                ((fail_count++))
+                ;;
+            "manual")
+                ((manual_count++))
+                ;;
+            "not checked")
+                ((not_checked_count++))
+                ;;
+        esac
+    done
+    
     echo -e "Passed: $pass_count"
     echo -e "Failed: $fail_count"
     echo -e "Manual Checks Needed: $manual_count"
