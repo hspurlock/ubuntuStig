@@ -251,6 +251,15 @@ run_check() {
         return
     fi
     
+    # Extract the command binary (first word before space or pipe)
+    local binary=$(echo "$cmd" | awk '{print $1}' | cut -d '|' -f1)
+    
+    # Check if the command exists
+    if ! command -v $binary &>/dev/null; then
+        echo "not checked"
+        return
+    fi
+    
     # Execute command with a timeout and capture output
     output=$(timeout 5s bash -c "$cmd" 2>&1)
     local exit_code=$?
@@ -265,6 +274,12 @@ run_check() {
     # Handle commands that return 1 but have no output - mark as pass
     if [ $exit_code -eq 1 ] && [ -z "$output" ]; then
         echo "pass"
+        return
+    fi
+    
+    # Check for "command not found" in the output
+    if [[ "$output" == *"command not found"* ]] || [[ "$output" == *"No such file or directory"* ]]; then
+        echo "not checked"
         return
     fi
     
@@ -287,6 +302,9 @@ log_result() {
     elif [ "$status" == "manual" ]; then
         echo -e "${YELLOW}[MANUAL CHECK NEEDED]${NC} $rule_id: $title"
         results["$rule_id"]="manual"
+    elif [ "$status" == "not checked" ]; then
+        echo -e "${YELLOW}[NOT CHECKED]${NC} $rule_id: $title"
+        results["$rule_id"]="not checked"
     else
         echo -e "${RED}[FAIL]${NC} $rule_id: $title"
         results["$rule_id"]="fail"
@@ -302,9 +320,11 @@ generate_report() {
     pass_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "pass" || echo 0)
     manual_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "manual" || echo 0)
     fail_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "fail" || echo 0)
+    not_checked_count=$(echo "${results[@]}" | tr ' ' '\\n' | grep -c "not checked" || echo 0)
     echo -e "Passed: $pass_count"
     echo -e "Failed: $fail_count"
     echo -e "Manual Checks Needed: $manual_count"
+    echo -e "Not Checked: $not_checked_count"
 
     # Create results directory with proper permissions
     RESULTS_DIR="stig_results"
@@ -339,6 +359,7 @@ generate_report() {
         .pass { color: #28a745; }
         .fail { color: #dc3545; }
         .manual { color: #ffc107; }
+        .not-checked { color: #6c757d; }
         table { 
             width: 100%; 
             border-collapse: collapse; 
@@ -367,6 +388,7 @@ generate_report() {
         .status-pass { background: #d4edda; color: #155724; }
         .status-fail { background: #f8d7da; color: #721c24; }
         .status-manual { background: #fff3cd; color: #856404; }
+        .status-not-checked { background: #e9ecef; color: #495057; }
         .timestamp {
             margin-top: 20px;
             color: #6c757d;
@@ -437,6 +459,7 @@ EOL
         <p class="pass"><strong>Passed:</strong> $pass_count</p>
         <p class="fail"><strong>Failed:</strong> $fail_count</p>
         <p class="manual"><strong>Manual Checks Needed:</strong> $manual_count</p>
+        <p class="not-checked"><strong>Not Checked:</strong> $not_checked_count</p>
     </div>
     <h2>Detailed Results</h2>
     <table>
@@ -460,6 +483,9 @@ EOL
                 ;;
             "manual")
                 status_class="status-manual"
+                ;;
+            "not checked")
+                status_class="status-not-checked"
                 ;;
         esac
         echo "        <tr>" >> "$RESULTS_DIR/report.html"
