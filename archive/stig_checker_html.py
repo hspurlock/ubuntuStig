@@ -8,6 +8,7 @@ import sys
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Tuple
 from datetime import datetime
+import re
 
 class STIGChecker:
     def __init__(self, xccdf_file: str):
@@ -257,6 +258,25 @@ run_check() {
     # Check if the command exists
     if ! command -v $binary &>/dev/null; then
         echo "not checked"
+        return
+    fi
+    
+    # Special handling for sysctl net.ipv4.tcp_syncookies
+    if [[ "$cmd" == *"sysctl net.ipv4.tcp_syncookies"* ]]; then
+        # Check if syncookies are enabled (value should be 1)
+        value=$(sysctl -n net.ipv4.tcp_syncookies 2>/dev/null)
+        if [ $? -eq 0 ] && [ "$value" == "1" ]; then
+            echo "pass"
+            return
+        fi
+        
+        # Also check config files as an alternative
+        if grep -q "^net.ipv4.tcp_syncookies\s*=\s*1" /etc/sysctl.d/*.conf /run/sysctl.d/*.conf /usr/local/lib/sysctl.d/*.conf /usr/lib/sysctl.d/*.conf /lib/sysctl.d/*.conf /etc/sysctl.conf 2>/dev/null; then
+            echo "pass"
+            return
+        fi
+        
+        echo "fail"
         return
     fi
     
@@ -550,6 +570,13 @@ check_{rule['id'].replace('-', '_')}() {{
                 escaped_cmd = cmd.replace('"', '\\"')
                 # Remove sudo as we're already running as root
                 escaped_cmd = escaped_cmd.replace('sudo ', '')
+                
+                # Fix find commands with -exec to properly escape the semicolon
+                if 'find' in escaped_cmd and '-exec' in escaped_cmd:
+                    # Check if it ends with bare semicolon after -exec and replace with \;
+                    if re.search(r'-exec.*[^\\];', escaped_cmd):
+                        escaped_cmd = re.sub(r'(-exec.*?[^\\]);', r'\1\\;', escaped_cmd)
+                
                 check_function += f"""
     # Run command: {cmd}
     status=$(run_check "{escaped_cmd}")
