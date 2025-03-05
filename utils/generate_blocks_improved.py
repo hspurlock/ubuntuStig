@@ -732,6 +732,27 @@ fi
 # Print the final result for this rule
 print_rule_result "$rule_result" "{rule_id}" "{title}"
 
+# Output the result to CSV
+stig_result=""
+if [ "$rule_result" == "FAIL" ]; then
+    stig_result="Open"
+elif [ "$rule_result" == "PASS" ]; then
+    stig_result="Not a Finding"
+elif [ "$rule_result" == "MANUAL" ]; then
+    stig_result="Not Reviewed"
+elif [ "$rule_result" == "NOT_CHECKED" ]; then
+    stig_result="Not Reviewed"
+fi
+
+# Append or create output CSV file
+if [ -f output.csv ]; then
+    cat << EOF >> output.csv
+"{rule_id}", "$stig_result", "{cmd_escaped}", "$output_{i}"
+EOF
+else
+    echo -e \\"Rule ID\\", \\"Status\\", \\"Comments\\", \\"Finding Details\\" > output.csv
+fi
+
 update_counters "$rule_result"
 """
     

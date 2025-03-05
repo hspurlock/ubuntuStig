@@ -76,6 +76,18 @@ docker exec -it <container_id> bash -c "cd /tmp && chmod +x *.sh && ./run_scan_w
 docker cp <container_id>:/tmp/stig_results.txt ./container_stig_results.txt
 ```
 
+For CSV output as well, use the `ubuntu_22-04_v2r2_csv.sh` script in lieu of `ubuntu_22-04_v2r2.sh`. Output is in the container `output.csv`.
+
+Example first several lines of `output.csv`:
+
+```text
+"Rule ID", "Status", "Comments", "Finding Details"
+"SV-260470r958472_rule", "Not Reviewed", "grep -i password /boot/grub/grub.cfg", "grep: /boot/grub/grub.cfg: No such file or directory"
+"SV-260471r991555_rule", "Not Reviewed", "grep \"^\s*linux\" /boot/grub/grub.cfg", "grep: /boot/grub/grub.cfg: No such file or directory"
+"SV-260472r958524_rule", "Open", "grep -ir kernel.dmesg_restrict /run/sysctl.d/* /etc/sysctl.d/* /usr/local/lib/sysctl.d/* /usr/lib/sysctl.d/* /lib/sysctl.d/* /etc/sysctl.conf 2> /dev/null", "/etc/sysctl.d/10-kernel-hardening.conf:# kernel.dmesg_restrict = 0"
+"SV-260473r958550_rule", "Open", "systemctl status kdump.service", "./ubuntu_22-04_v2r2_csv.sh: line 945: systemctl: command not found"
+```
+
 ## Requirements
 
 - Ubuntu 24.04 LTS
