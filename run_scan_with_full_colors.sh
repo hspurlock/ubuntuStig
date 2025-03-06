@@ -2,20 +2,37 @@
 
 # Check if required parameters are provided
 if [ $# -lt 2 ]; then
-  echo "Usage: $0 <scan_script> <output_file> [--no-color]"
+  echo "Usage: $0 <scan_script> <output_file> [--no-color] [--csv]"
   echo "Example: $0 ./ubuntu_scan.sh scan_results.txt"
-  echo "Add --no-color as third parameter to strip color codes from the output file"
+  echo "Options:"
+  echo "  --no-color   Strip color codes from the output file"
+  echo "  --csv        Generate a CSV report in addition to the text output"
   exit 1
 fi
 
 SCAN_SCRIPT="$1"
 OUTPUT_FILE="$2"
 STRIP_COLORS=false
+GENERATE_CSV=false
 
-# Check if the --no-color flag is provided
-if [ $# -ge 3 ] && [ "$3" == "--no-color" ]; then
-  STRIP_COLORS=true
-fi
+# Check for optional flags
+shift 2
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --no-color)
+      STRIP_COLORS=true
+      ;;
+    --csv)
+      GENERATE_CSV=true
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Valid options: --no-color, --csv"
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 # Check if the scan script exists and is executable
 if [ ! -f "$SCAN_SCRIPT" ]; then
@@ -72,6 +89,21 @@ else
   echo ""
   echo "A plain text version (without colors) is also available at:"
   echo "$PLAIN_OUTPUT"
+fi
+
+# Generate CSV report if requested
+if [ "$GENERATE_CSV" = true ]; then
+  CSV_OUTPUT="${OUTPUT_FILE%.*}.csv"
+  
+  if [ -f "./generate_csv_report.sh" ]; then
+    echo "Generating CSV report..."
+    chmod +x ./generate_csv_report.sh
+    ./generate_csv_report.sh "$OUTPUT_FILE" "$CSV_OUTPUT"
+    echo "CSV report saved to: $CSV_OUTPUT"
+  else
+    echo "Warning: CSV report generator script not found. CSV report was not generated."
+    echo "Make sure generate_csv_report.sh exists in the current directory."
+  fi
 fi
 
 # Clean up the temporary file
