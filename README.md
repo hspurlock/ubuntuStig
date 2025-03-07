@@ -54,31 +54,55 @@ sudo ./run_scan_with_full_colors.sh ./ubuntu_24-04_v1r1.sh ubuntu24_results.txt
 sudo ./run_scan_with_full_colors.sh ./ubuntu_24-04_v1r1.sh ubuntu24_results.txt --csv
 ```
 
-## Running Against Docker Containers
+## Docker STIG Compatibility
 
-You can run the STIG compliance checks against a running Docker container using the following approach:
+The repository includes a specialized Docker STIG compatibility feature that generates compliance scripts tailored specifically for Docker container environments. This feature filters out checks that are not applicable to containers and adapts relevant checks to work properly in containerized environments.
+
+### Generating Docker-Compatible STIG Scripts
 
 ```bash
-# Copy the appropriate script to the container (example for Ubuntu 22.04)
-docker cp ubuntu_22-04_v2r2.sh <container_id>:/tmp/
+python3 utils/generate_Docker_stig_script.py <xml_file> <output_script_file>
+```
+
+Example:
+```bash
+python3 utils/generate_Docker_stig_script.py U_CAN_Ubuntu_24-04_LTS_STIG_V1R1_Manual-xccdf.xml docker_ubuntu_24-04_v1r1.sh
+```
+
+### Key Features
+
+- **Intelligent Filtering**: Excludes checks not applicable to containers (systemd, boot, kernel parameters, etc.)
+- **Conditional SSH Checks**: Only evaluates SSH banner requirements if SSH is installed
+- **Comprehensive Exclusions**: Removes checks related to AppArmor, PAM, sudo, chrony, PIV credentials, and session locking
+- **Improved Compliance Scores**: Provides more accurate assessment of container security posture
+
+For more details, see [docs/docker_stig_feature.md](docs/docker_stig_feature.md).
+
+### Running Docker-Compatible STIG Checks
+
+You can run the Docker-compatible STIG compliance checks against a running Docker container:
+
+```bash
+# Copy the Docker-compatible script to the container
+docker cp docker_ubuntu_24-04_v1r1.sh <container_id>:/
 
 # Execute the script inside the container
-docker exec -it <container_id> bash -c "cd /tmp && chmod +x ubuntu_22-04_v2r2.sh && ./ubuntu_22-04_v2r2.sh"
+docker exec <container_id> /docker_ubuntu_24-04_v1r1.sh
 ```
 
 For a more comprehensive assessment with saved results:
 
 ```bash
-# Copy the necessary scripts to the container (choose the appropriate Ubuntu version)
-docker cp ubuntu_22-04_v2r2.sh <container_id>:/tmp/
+# Copy the necessary scripts to the container
+docker cp docker_ubuntu_24-04_v1r1.sh <container_id>:/tmp/
 docker cp run_scan_with_full_colors.sh <container_id>:/tmp/
 
 # Execute inside the container
-docker exec -it <container_id> bash -c "cd /tmp && chmod +x *.sh && ./run_scan_with_full_colors.sh ./ubuntu_22-04_v2r2.sh /tmp/stig_results.txt --csv"
+docker exec -it <container_id> bash -c "cd /tmp && chmod +x *.sh && ./run_scan_with_full_colors.sh ./docker_ubuntu_24-04_v1r1.sh /tmp/docker_stig_results.txt --csv"
 
 # Retrieve the results (both text and CSV)
-docker cp <container_id>:/tmp/stig_results.txt ./container_stig_results.txt
-docker cp <container_id>:/tmp/stig_results.csv ./container_stig_results.csv
+docker cp <container_id>:/tmp/docker_stig_results.txt ./container_docker_stig_results.txt
+docker cp <container_id>:/tmp/docker_stig_results.csv ./container_docker_stig_results.csv
 ```
 
 ## CSV Reports
