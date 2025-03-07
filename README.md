@@ -16,7 +16,7 @@ A comprehensive tool for checking Ubuntu systems against Security Technical Impl
 The main compliance script is generated using:
 
 ```bash
-python3 utils/generate_blocks_improved.py <xml_file> [output_file]
+python3 utils/generate_OS_stig_script.py <xml_file> [output_file]
 ```
 
 ## Usage
