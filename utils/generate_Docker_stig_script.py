@@ -450,6 +450,8 @@ echo -e "${CYAN}=======================================================${NC}"
 """
 
 def generate_check_block(rule_id, title, check_content, commands, requirement_type, check_type):
+    # Remove any existing [DOCKER] prefix to avoid duplication
+    title = title.replace("[DOCKER] ", "")
     """Generate a shell script block for a STIG check."""
     # Format the commands as a shell script block
     command_block = ""
@@ -468,26 +470,39 @@ def generate_check_block(rule_id, title, check_content, commands, requirement_ty
         
         # Add the regular commands indented inside the if block
         if commands:
-            for cmd in commands:
+            for i, cmd in enumerate(commands):
                 # Add command execution and result evaluation (indented for the if block)
                 command_block += f"""
-        # Execute command: {cmd}
-        echo -e "${{CYAN}}Executing: {cmd}${{NC}}"
-        output=$({cmd} 2>&1)
-        exit_code=$?
-        echo "$output"
+        # Command {i+1}
+        echo -e "${{BLUE}}Executing:${{NC}} {cmd}"
+        output_{i}=$(eval "{cmd}" 2>&1)
+        exit_code_{i}=$?
+        echo -e "${{BLUE}}Exit Code:${{NC}} $exit_code_{i}"
+        echo -e "${{BLUE}}Output:${{NC}}"
+        echo "$output_{i}"
+        echo ""
         
-        # Evaluate result
-        result=$(evaluate_command_result "$exit_code" "$output" "{requirement_type}" "{cmd}" "{rule_id}")
-    """
+        # Evaluate command result using function
+        cmd_result_{i}=$(evaluate_command_result "$exit_code_{i}" "$output_{i}" "{requirement_type}" "{cmd}" "{rule_id}")
+        echo -e "${{BLUE}}Command {i+1} Result:${{NC}} $cmd_result_{i}"
+        
+        # If any command fails, the whole rule fails
+        if [ "$cmd_result_{i}" == "FAIL" ]; then
+            rule_result="FAIL"
+        elif [ "$cmd_result_{i}" == "MANUAL" ] && [ "$rule_result" != "FAIL" ]; then
+            rule_result="MANUAL"
+        elif [ "$cmd_result_{i}" == "NOT_CHECKED" ] && [ "$rule_result" != "FAIL" ] && [ "$rule_result" != "MANUAL" ]; then
+            rule_result="NOT_CHECKED"
+        fi
+        """
         else:
             # If no commands, mark as manual check
             command_block += """
         # No automated commands available
         echo -e "${YELLOW}No automated commands available for this check${NC}"
-        result="MANUAL"
+        rule_result="MANUAL"
         echo -e "${YELLOW}Manual verification required${NC}"
-    """
+        """
         
         # Close the if block
         command_block += """
@@ -495,46 +510,70 @@ def generate_check_block(rule_id, title, check_content, commands, requirement_ty
 """
     elif commands:
         # Regular case for non-SSH checks with commands
-        for cmd in commands:
+        command_block += """
+    # Execute commands and evaluate results
+    rule_result="PASS"  # Start with assumption of pass
+"""
+        for i, cmd in enumerate(commands):
             # Add command execution and result evaluation
             command_block += f"""
-    # Execute command: {cmd}
-    echo -e "${{CYAN}}Executing: {cmd}${{NC}}"
-    output=$({cmd} 2>&1)
-    exit_code=$?
-    echo "$output"
+    # Command {i+1}
+    echo -e "${{BLUE}}Executing:${{NC}} {cmd}"
+    output_{i}=$(eval "{cmd}" 2>&1)
+    exit_code_{i}=$?
+    echo -e "${{BLUE}}Exit Code:${{NC}} $exit_code_{i}"
+    echo -e "${{BLUE}}Output:${{NC}}"
+    echo "$output_{i}"
+    echo ""
     
-    # Evaluate result
-    result=$(evaluate_command_result "$exit_code" "$output" "{requirement_type}" "{cmd}" "{rule_id}")
+    # Evaluate command result using function
+    cmd_result_{i}=$(evaluate_command_result "$exit_code_{i}" "$output_{i}" "{requirement_type}" "{cmd}" "{rule_id}")
+    echo -e "${{BLUE}}Command {i+1} Result:${{NC}} $cmd_result_{i}"
+    
+    # If any command fails, the whole rule fails
+    if [ "$cmd_result_{i}" == "FAIL" ]; then
+        rule_result="FAIL"
+    elif [ "$cmd_result_{i}" == "MANUAL" ] && [ "$rule_result" != "FAIL" ]; then
+        rule_result="MANUAL"
+    elif [ "$cmd_result_{i}" == "NOT_CHECKED" ] && [ "$rule_result" != "FAIL" ] && [ "$rule_result" != "MANUAL" ]; then
+        rule_result="NOT_CHECKED"
+    fi
     """
     else:
         # If no commands, mark as manual check
         command_block = """
     # No automated commands available
     echo -e "${YELLOW}No automated commands available for this check${NC}"
-    result="MANUAL"
+    rule_result="MANUAL"
     echo -e "${YELLOW}Manual verification required${NC}"
     """
     
     # Format the full check block
     block = f"""
-# =======================================================================
-# {rule_id}: {title}
-# =======================================================================
-echo -e "${{CYAN}}=======================================================${{NC}}"
-echo -e "${{CYAN}}Checking {rule_id}${{NC}}"
-echo -e "${{CYAN}}Title: {title}${{NC}}"
-echo -e "${{CYAN}}=======================================================${{NC}}"
+# {'-' * 80}
+# Check for {rule_id}: {title}
+# {'-' * 80}
+echo -e "\n${{CYAN}}=== Checking {rule_id} ===${{NC}}"
+# Add [DOCKER] prefix to title
+echo -e "${{BLUE}}Title:${{NC}} [DOCKER] {title}"
+echo -e "${{BLUE}}Requirement Type:${{NC}} {requirement_type}"
+echo -e "${{BLUE}}Check Type:${{NC}} {check_type}\n"
+
+# Check Content:
+cat << 'EOF'
+{check_content}
+EOF
+
+echo ""
 
 check_{rule_id.replace('-', '_')}() {{
-    # Check content:
-    # {check_content.replace('\n', '\n    # ')}
 {command_block}
-    # Print result
-    print_rule_result "$result" "{rule_id}" "{title}"
+    # Print the final result for this rule
+    # Print the final result with [DOCKER] prefix
+    print_rule_result "$rule_result" "{rule_id}" "[DOCKER] {title}"
     
     # Update counters
-    update_counters "$result"
+    update_counters "$rule_result"
 }}
 
 # Run the check

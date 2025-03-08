@@ -14,7 +14,7 @@ The CSV report feature allows you to generate a structured, machine-readable rep
 To generate a CSV report along with the standard text output, add the `--csv` flag when running the scan:
 
 ```bash
-./run_scan_with_full_colors.sh ./ubuntu_24-04_v1r1.sh results.txt --csv
+./RUN_SCAN.sh ./ubuntu_24-04_v1r1.sh results.txt --csv
 ```
 
 This will generate:
@@ -24,7 +24,7 @@ This will generate:
 You can combine the `--csv` flag with other options:
 
 ```bash
-./run_scan_with_full_colors.sh ./ubuntu_24-04_v1r1.sh results.txt --no-color --csv
+./RUN_SCAN.sh ./ubuntu_24-04_v1r1.sh results.txt --no-color --csv
 ```
 
 ## CSV Format
@@ -38,10 +38,10 @@ The CSV file contains the following columns:
 
 ## Implementation Details
 
-The CSV generation is handled by the `generate_csv_report.sh` script, which:
+The CSV generation is now directly integrated into the main `RUN_SCAN.sh` script as a function, which:
 
 1. Processes the text output from the STIG compliance check
 2. Extracts rule IDs, titles, statuses, and relevant details
 3. Formats the data as a properly escaped CSV file
 
-The script handles ANSI color codes in the input file and properly escapes special characters for CSV format.
+The integrated function handles ANSI color codes in the input file and properly escapes special characters for CSV format. This integration eliminates the need for a separate external script, making the tool more self-contained and easier to maintain.
