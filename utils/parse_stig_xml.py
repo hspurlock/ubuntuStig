@@ -14,6 +14,13 @@ def extract_commands_from_check_content(check_content):
     """Extract commands from check content text."""
     commands = []
     
+    # Special case for maxlogins check which has problematic regex characters
+    if "maxlogins" in check_content and "'^[^#]" in check_content:
+        # Extract the command directly to avoid regex escaping issues
+        maxlogins_cmd = "grep -r -s \"^[^#].*maxlogins\" /etc/security/limits.conf /etc/security/limits.d/*.conf"
+        commands.append(maxlogins_cmd)
+        return commands  # Return early as we've handled this special case
+    
     # Look for command patterns in the check content
     # Pattern 1: Commands after a $ symbol (common in STIG checks)
     cmd_pattern1 = r'\$\s+(sudo\s+)?([^#\n]+)'

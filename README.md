@@ -11,6 +11,7 @@ A comprehensive tool for checking Ubuntu systems against Security Technical Impl
   - Sysctl configuration checks
   - X11Forwarding SSH configuration checks
   - FIPS mode validation
+  - Regex pattern handling for grep commands
 - Color-coded output for easy interpretation
 - Summary statistics of compliance status
 
@@ -68,19 +69,19 @@ The scanning tool now includes integrated CSV report generation functionality. W
 
 The CSV report is saved to a file with the same name as the output file but with a `.csv` extension, making it easy to import into spreadsheet applications or data analysis tools.
 
-## Docker STIG Compatibility
+## Container STIG Compatibility
 
-The repository includes a specialized Docker STIG compatibility feature that generates compliance scripts tailored specifically for Docker container environments. This feature filters out checks that are not applicable to containers and adapts relevant checks to work properly in containerized environments.
+The repository includes a specialized Container STIG compatibility feature that generates compliance scripts tailored specifically for container environments. This feature filters out checks that are not applicable to containers and adapts relevant checks to work properly in containerized environments.
 
-### Generating Docker-Compatible STIG Scripts
+### Generating Container-Compatible STIG Scripts
 
 ```bash
-python3 utils/generate_Docker_stig_script.py <xml_file> <output_script_file>
+python3 utils/generate_Container_stig_script.py <xml_file> <output_script_file>
 ```
 
 Example:
 ```bash
-python3 utils/generate_Docker_stig_script.py U_CAN_Ubuntu_24-04_LTS_STIG_V1R1_Manual-xccdf.xml docker_ubuntu_24-04_v1r1.sh
+python3 utils/generate_Container_stig_script.py U_CAN_Ubuntu_24-04_LTS_STIG_V1R1_Manual-xccdf.xml container_ubuntu_24-04_v1r1.sh
 ```
 
 ### Key Features
@@ -90,33 +91,33 @@ python3 utils/generate_Docker_stig_script.py U_CAN_Ubuntu_24-04_LTS_STIG_V1R1_Ma
 - **Comprehensive Exclusions**: Removes checks related to AppArmor, PAM, sudo, chrony, PIV credentials, and session locking
 - **Improved Compliance Scores**: Provides more accurate assessment of container security posture
 
-For more details, see [docs/docker_stig_feature.md](docs/docker_stig_feature.md).
+For more details, see [docs/container_stig_feature.md](docs/container_stig_feature.md).
 
-### Running Docker-Compatible STIG Checks
+### Running Container-Compatible STIG Checks
 
-You can run the Docker-compatible STIG compliance checks against a running Docker container:
+You can run the Container-compatible STIG compliance checks against a running Docker container:
 
 ```bash
-# Copy the Docker-compatible script to the container
-docker cp docker_ubuntu_24-04_v1r1.sh <container_id>:/
+# Copy the Container-compatible script to the container
+docker cp container_ubuntu_24-04_v1r1.sh <container_id>:/
 
 # Execute the script inside the container
-docker exec <container_id> /docker_ubuntu_24-04_v1r1.sh
+docker exec <container_id> /container_ubuntu_24-04_v1r1.sh
 ```
 
 For a more comprehensive assessment with saved results:
 
 ```bash
 # Copy the necessary scripts to the container
-docker cp docker_ubuntu_24-04_v1r1.sh <container_id>:/tmp/
+docker cp container_ubuntu_24-04_v1r1.sh <container_id>:/tmp/
 docker cp RUN_SCAN.sh <container_id>:/tmp/
 
 # Execute inside the container
-docker exec -it <container_id> bash -c "cd /tmp && chmod +x *.sh && ./RUN_SCAN.sh ./docker_ubuntu_24-04_v1r1.sh /tmp/docker_stig_results.txt --csv"
+docker exec -it <container_id> bash -c "cd /tmp && chmod +x *.sh && ./RUN_SCAN.sh ./container_ubuntu_24-04_v1r1.sh /tmp/container_stig_results.txt --csv"
 
 # Retrieve the results (both text and CSV)
-docker cp <container_id>:/tmp/docker_stig_results.txt ./container_docker_stig_results.txt
-docker cp <container_id>:/tmp/docker_stig_results.csv ./container_docker_stig_results.csv
+docker cp <container_id>:/tmp/container_stig_results.txt ./container_stig_results.txt
+docker cp <container_id>:/tmp/container_stig_results.csv ./container_stig_results.csv
 ```
 
 ## CSV Reports
@@ -170,6 +171,15 @@ The script properly validates FIPS mode by:
 
 This ensures accurate compliance assessment for systems requiring FIPS compliance.
 
+
+### Improved Command Evaluation
+
+The script now features an enhanced command evaluation system that:
+- Intelligently evaluates command results based on command type and output
+- Properly handles grep commands with exit codes 0 (matches found), 1 (no matches), and 2 (errors)
+- Examines actual command output rather than relying solely on exit codes
+- Reduces false positives and negatives in compliance checks
+
 ## Requirements
 
 - Ubuntu 24.04 LTS
@@ -194,8 +204,8 @@ To run individual test components:
 # Test OS Scanner functionality
 ./test/test_os_scanner.sh
 
-# Test Docker Scanner functionality
-./test/test_docker_scanner.sh
+# Test Container Scanner functionality
+./test/test_container_scanner.sh
 
 # Test CSV Output functionality
 ./test/test_csv_output.sh

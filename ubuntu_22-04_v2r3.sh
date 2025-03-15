@@ -829,24 +829,24 @@ print_rule_result "$rule_result" "SV-260472r958524_rule" "Ubuntu 22.04 LTS must 
 update_counters "$rule_result"
 
 # --------------------------------------------------------------------------------
-# Check for SV-260473r958550_rule: Ubuntu 22.04 LTS must disable kernel core dumps so that it can fail to a secure state if system initialization fails, shutdown fails or aborts fail.
+# Check for SV-260473r1044782_rule: Ubuntu 22.04 LTS must disable kernel core dumps so that it can fail to a secure state if system initialization fails, shutdown fails or aborts fail.
 # --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260473r958550_rule ===${NC}"
+echo -e "\n${CYAN}=== Checking SV-260473r1044782_rule ===${NC}"
 echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must disable kernel core dumps so that it can fail to a secure state if system initialization fails, shutdown fails or aborts fail."
 echo -e "${BLUE}Requirement Type:${NC} positive"
 echo -e "${BLUE}Check Type:${NC} service\n"
 
 # Check Content:
 cat << 'EOF'
-Verify that kernel core dumps are disabled unless needed by using the following command:  
-  
-     $ systemctl status kdump.service 
-     kdump.service 
-          Loaded: masked (Reason: Unit kdump.service is masked.) 
-          Active: inactive (dead) 
-  
-If "kdump.service" is not masked and inactive, ask the system administrator (SA) if the use of the service is required and documented with the information system security officer (ISSO).  
-  
+Verify that kernel core dumps are disabled unless needed by using the following command:
+
+$ systemctl status kdump-tools.service
+kdump-tools.service
+Loaded: masked (Reason: Unit kdump-tools.service is masked.)
+Active: inactive (dead)
+
+If "kdump-tools.service" is not masked and inactive, ask the system administrator (SA) if the use of the service is required and documented with the information system security officer (ISSO).
+
 If the service is active and is not documented, this is a finding.
 EOF
 
@@ -857,8 +857,8 @@ echo ""
 rule_result="PASS"  # Start with assumption of pass
 
 # Command 1
-echo -e "${BLUE}Executing:${NC} systemctl status kdump.service"
-output_0=$(eval "systemctl status kdump.service" 2>&1)
+echo -e "${BLUE}Executing:${NC} systemctl status kdump-tools.service"
+output_0=$(eval "systemctl status kdump-tools.service" 2>&1)
 exit_code_0=$?
 echo -e "${BLUE}Exit Code:${NC} $exit_code_0"
 echo -e "${BLUE}Output:${NC}"
@@ -866,7 +866,7 @@ echo "$output_0"
 echo ""
 
 # Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "systemctl status kdump.service" "SV-260473r958550_rule")
+cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "systemctl status kdump-tools.service" "SV-260473r1044782_rule")
 echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
 
 # If any command fails, the whole rule fails
@@ -886,7 +886,7 @@ if [ $(is_manual_check "$check_content") == "true" ]; then
 fi
 
 # Print the final result for this rule
-print_rule_result "$rule_result" "SV-260473r958550_rule" "Ubuntu 22.04 LTS must disable kernel core dumps so that it can fail to a secure state if system initialization fails, shutdown fails or aborts fail."
+print_rule_result "$rule_result" "SV-260473r1044782_rule" "Ubuntu 22.04 LTS must disable kernel core dumps so that it can fail to a secure state if system initialization fails, shutdown fails or aborts fail."
 
 update_counters "$rule_result"
 
@@ -1150,9 +1150,9 @@ print_rule_result "$rule_result" "SV-260476r1015003_rule" "Ubuntu 22.04 LTS must
 update_counters "$rule_result"
 
 # --------------------------------------------------------------------------------
-# Check for SV-260477r958936_rule: Ubuntu 22.04 LTS must be configured so that the Advance Package Tool (APT) removes all software components after updated versions have been installed.
+# Check for SV-260477r1044773_rule: Ubuntu 22.04 LTS must be configured so that the Advance Package Tool (APT) removes all software components after updated versions have been installed.
 # --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260477r958936_rule ===${NC}"
+echo -e "\n${CYAN}=== Checking SV-260477r1044773_rule ===${NC}"
 echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must be configured so that the Advance Package Tool (APT) removes all software components after updated versions have been installed."
 echo -e "${BLUE}Requirement Type:${NC} positive"
 echo -e "${BLUE}Check Type:${NC} config\n"
@@ -1161,7 +1161,7 @@ echo -e "${BLUE}Check Type:${NC} config\n"
 cat << 'EOF'
 Verify APT is configured to remove all software components after updated versions have been installed by using the following command:  
   
-     $ grep -i remove-unused /etc/apt/apt.conf.d/50-unattended-upgrades 
+     $ grep -i remove-unused /etc/apt/apt.conf.d/50unattended-upgrades 
      Unattended-Upgrade::Remove-Unused-Kernel-Packages "true"; 
      Unattended-Upgrade::Remove-Unused-Dependencies "true"; 
   
@@ -1175,8 +1175,8 @@ echo ""
 rule_result="PASS"  # Start with assumption of pass
 
 # Command 1
-echo -e "${BLUE}Executing:${NC} grep -i remove-unused /etc/apt/apt.conf.d/50-unattended-upgrades"
-output_0=$(eval "grep -i remove-unused /etc/apt/apt.conf.d/50-unattended-upgrades" 2>&1)
+echo -e "${BLUE}Executing:${NC} grep -i remove-unused /etc/apt/apt.conf.d/50unattended-upgrades"
+output_0=$(eval "grep -i remove-unused /etc/apt/apt.conf.d/50unattended-upgrades" 2>&1)
 exit_code_0=$?
 echo -e "${BLUE}Exit Code:${NC} $exit_code_0"
 echo -e "${BLUE}Output:${NC}"
@@ -1184,7 +1184,7 @@ echo "$output_0"
 echo ""
 
 # Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -i remove-unused /etc/apt/apt.conf.d/50-unattended-upgrades" "SV-260477r958936_rule")
+cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -i remove-unused /etc/apt/apt.conf.d/50unattended-upgrades" "SV-260477r1044773_rule")
 echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
 
 # If any command fails, the whole rule fails
@@ -1204,7 +1204,7 @@ if [ $(is_manual_check "$check_content") == "true" ]; then
 fi
 
 # Print the final result for this rule
-print_rule_result "$rule_result" "SV-260477r958936_rule" "Ubuntu 22.04 LTS must be configured so that the Advance Package Tool (APT) removes all software components after updated versions have been installed."
+print_rule_result "$rule_result" "SV-260477r1044773_rule" "Ubuntu 22.04 LTS must be configured so that the Advance Package Tool (APT) removes all software components after updated versions have been installed."
 
 update_counters "$rule_result"
 
@@ -3720,9 +3720,9 @@ print_rule_result "$rule_result" "SV-260518r958480_rule" "Ubuntu 22.04 LTS must 
 update_counters "$rule_result"
 
 # --------------------------------------------------------------------------------
-# Check for SV-260519r1015004_rule: Ubuntu 22.04 LTS must, for networked systems, compare internal information system clocks at least every 24 hours with a server synchronized to one of the redundant United States Naval Observatory (USNO) time servers, or a time server designated for the appropriate DOD network (NIPRNet/SIPRNet), and/or the Global Positioning System (GPS).
+# Check for SV-260519r1038944_rule: Ubuntu 22.04 LTS must, for networked systems, compare internal information system clocks at least every 24 hours with a server synchronized to one of the redundant United States Naval Observatory (USNO) time servers, or a time server designated for the appropriate DOD network (NIPRNet/SIPRNet), and/or the Global Positioning System (GPS).
 # --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260519r1015004_rule ===${NC}"
+echo -e "\n${CYAN}=== Checking SV-260519r1038944_rule ===${NC}"
 echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must, for networked systems, compare internal information system clocks at least every 24 hours with a server synchronized to one of the redundant United States Naval Observatory (USNO) time servers, or a time server designated for the appropriate DOD network (NIPRNet/SIPRNet), and/or the Global Positioning System (GPS)."
 echo -e "${BLUE}Requirement Type:${NC} positive"
 echo -e "${BLUE}Check Type:${NC} config\n"
@@ -3764,7 +3764,7 @@ echo "$output_0"
 echo ""
 
 # Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep maxpoll -ir /etc/chrony*" "SV-260519r1015004_rule")
+cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep maxpoll -ir /etc/chrony*" "SV-260519r1038944_rule")
 echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
 
 # If any command fails, the whole rule fails
@@ -3787,7 +3787,7 @@ echo "$output_1"
 echo ""
 
 # Evaluate command result using function
-cmd_result_1=$(evaluate_command_result "$exit_code_1" "$output_1" "positive" "grep -ir server /etc/chrony*" "SV-260519r1015004_rule")
+cmd_result_1=$(evaluate_command_result "$exit_code_1" "$output_1" "positive" "grep -ir server /etc/chrony*" "SV-260519r1038944_rule")
 echo -e "${BLUE}Command 2 Result:${NC} $cmd_result_1"
 
 # If any command fails, the whole rule fails
@@ -3807,14 +3807,14 @@ if [ $(is_manual_check "$check_content") == "true" ]; then
 fi
 
 # Print the final result for this rule
-print_rule_result "$rule_result" "SV-260519r1015004_rule" "Ubuntu 22.04 LTS must, for networked systems, compare internal information system clocks at least every 24 hours with a server synchronized to one of the redundant United States Naval Observatory (USNO) time servers, or a time server designated for the appropriate DOD network (NIPRNet/SIPRNet), and/or the Global Positioning System (GPS)."
+print_rule_result "$rule_result" "SV-260519r1038944_rule" "Ubuntu 22.04 LTS must, for networked systems, compare internal information system clocks at least every 24 hours with a server synchronized to one of the redundant United States Naval Observatory (USNO) time servers, or a time server designated for the appropriate DOD network (NIPRNet/SIPRNet), and/or the Global Positioning System (GPS)."
 
 update_counters "$rule_result"
 
 # --------------------------------------------------------------------------------
-# Check for SV-260520r1015005_rule: Ubuntu 22.04 LTS must synchronize internal information system clocks to the authoritative time source when the time difference is greater than one second.
+# Check for SV-260520r1044776_rule: Ubuntu 22.04 LTS must synchronize internal information system clocks to the authoritative time source when the time difference is greater than one second.
 # --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260520r1015005_rule ===${NC}"
+echo -e "\n${CYAN}=== Checking SV-260520r1044776_rule ===${NC}"
 echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must synchronize internal information system clocks to the authoritative time source when the time difference is greater than one second."
 echo -e "${BLUE}Requirement Type:${NC} positive"
 echo -e "${BLUE}Check Type:${NC} config\n"
@@ -3828,9 +3828,9 @@ Note: If the system is not networked, this requirement is not applicable.
 Check the value of "makestep" by using the following command:  
   
      $ grep -ir makestep /etc/chrony* 
-     makestep 1 1 
+     makestep 1 -1 
  
-If "makestep" is not set to "1 1", is commented out, or is missing, this is a finding. 
+If "makestep" is not set to "1 -1", is commented out, or is missing, this is a finding. 
  
 Verify the NTP service is active and the system clock is synchronized with the authoritative time source: 
  
@@ -3859,7 +3859,7 @@ echo "$output_0"
 echo ""
 
 # Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -ir makestep /etc/chrony*" "SV-260520r1015005_rule")
+cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -ir makestep /etc/chrony*" "SV-260520r1044776_rule")
 echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
 
 # If any command fails, the whole rule fails
@@ -3882,7 +3882,7 @@ echo "$output_1"
 echo ""
 
 # Evaluate command result using function
-cmd_result_1=$(evaluate_command_result "$exit_code_1" "$output_1" "positive" "timedatectl | grep -Ei '(synchronized|service)'" "SV-260520r1015005_rule")
+cmd_result_1=$(evaluate_command_result "$exit_code_1" "$output_1" "positive" "timedatectl | grep -Ei '(synchronized|service)'" "SV-260520r1044776_rule")
 echo -e "${BLUE}Command 2 Result:${NC} $cmd_result_1"
 
 # If any command fails, the whole rule fails
@@ -3902,7 +3902,7 @@ if [ $(is_manual_check "$check_content") == "true" ]; then
 fi
 
 # Print the final result for this rule
-print_rule_result "$rule_result" "SV-260520r1015005_rule" "Ubuntu 22.04 LTS must synchronize internal information system clocks to the authoritative time source when the time difference is greater than one second."
+print_rule_result "$rule_result" "SV-260520r1044776_rule" "Ubuntu 22.04 LTS must synchronize internal information system clocks to the authoritative time source when the time difference is greater than one second."
 
 update_counters "$rule_result"
 
@@ -5193,9 +5193,9 @@ print_rule_result "$rule_result" "SV-260545r1015007_rule" "Ubuntu 22.04 LTS must
 update_counters "$rule_result"
 
 # --------------------------------------------------------------------------------
-# Check for SV-260546r1015008_rule: Ubuntu 22.04 LTS must enforce a 60-day maximum password lifetime restriction. Passwords for new users must have a 60-day maximum password lifetime restriction.
+# Check for SV-260546r1038967_rule: Ubuntu 22.04 LTS must enforce a 60-day maximum password lifetime restriction. Passwords for new users must have a 60-day maximum password lifetime restriction.
 # --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260546r1015008_rule ===${NC}"
+echo -e "\n${CYAN}=== Checking SV-260546r1038967_rule ===${NC}"
 echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must enforce a 60-day maximum password lifetime restriction. Passwords for new users must have a 60-day maximum password lifetime restriction."
 echo -e "${BLUE}Requirement Type:${NC} positive"
 echo -e "${BLUE}Check Type:${NC} config\n"
@@ -5226,7 +5226,7 @@ echo "$output_0"
 echo ""
 
 # Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -i pass_max_days /etc/login.defs" "SV-260546r1015008_rule")
+cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -i pass_max_days /etc/login.defs" "SV-260546r1038967_rule")
 echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
 
 # If any command fails, the whole rule fails
@@ -5246,7 +5246,7 @@ if [ $(is_manual_check "$check_content") == "true" ]; then
 fi
 
 # Print the final result for this rule
-print_rule_result "$rule_result" "SV-260546r1015008_rule" "Ubuntu 22.04 LTS must enforce a 60-day maximum password lifetime restriction. Passwords for new users must have a 60-day maximum password lifetime restriction."
+print_rule_result "$rule_result" "SV-260546r1038967_rule" "Ubuntu 22.04 LTS must enforce a 60-day maximum password lifetime restriction. Passwords for new users must have a 60-day maximum password lifetime restriction."
 
 update_counters "$rule_result"
 
@@ -5528,64 +5528,6 @@ fi
 
 # Print the final result for this rule
 print_rule_result "$rule_result" "SV-260550r991588_rule" "Ubuntu 22.04 LTS must enforce a delay of at least four seconds between logon prompts following a failed logon attempt."
-
-update_counters "$rule_result"
-
-# --------------------------------------------------------------------------------
-# Check for SV-260551r991589_rule: Ubuntu 22.04 LTS must display the date and time of the last successful account logon upon logon.
-# --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260551r991589_rule ===${NC}"
-echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must display the date and time of the last successful account logon upon logon."
-echo -e "${BLUE}Requirement Type:${NC} positive"
-echo -e "${BLUE}Check Type:${NC} config\n"
-
-# Check Content:
-cat << 'EOF'
-Verify users are provided with feedback on when account accesses last occurred by using the following command:  
-  
-     $ grep pam_lastlog /etc/pam.d/login 
-     session     required     pam_lastlog.so     showfailed 
-  
-If the line containing "pam_lastlog" is not set to "required", or the "silent" option is present, the "showfailed" option is missing, the line is commented out, or the line is missing , this is a finding.
-EOF
-
-echo ""
-
-
-# Execute commands and evaluate results
-rule_result="PASS"  # Start with assumption of pass
-
-# Command 1
-echo -e "${BLUE}Executing:${NC} grep pam_lastlog /etc/pam.d/login"
-output_0=$(eval "grep pam_lastlog /etc/pam.d/login" 2>&1)
-exit_code_0=$?
-echo -e "${BLUE}Exit Code:${NC} $exit_code_0"
-echo -e "${BLUE}Output:${NC}"
-echo "$output_0"
-echo ""
-
-# Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep pam_lastlog /etc/pam.d/login" "SV-260551r991589_rule")
-echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
-
-# If any command fails, the whole rule fails
-if [ "$cmd_result_0" == "FAIL" ]; then
-    rule_result="FAIL"
-elif [ "$cmd_result_0" == "MANUAL" ] && [ "$rule_result" != "FAIL" ]; then
-    rule_result="MANUAL"
-elif [ "$cmd_result_0" == "NOT_CHECKED" ] && [ "$rule_result" != "FAIL" ] && [ "$rule_result" != "MANUAL" ]; then
-    rule_result="NOT_CHECKED"
-fi
-
-
-# Check if this is actually a manual check based on content
-if [ $(is_manual_check "$check_content") == "true" ]; then
-    echo -e "${YELLOW}This appears to be a manual check based on content.${NC}"
-    rule_result="MANUAL"
-fi
-
-# Print the final result for this rule
-print_rule_result "$rule_result" "SV-260551r991589_rule" "Ubuntu 22.04 LTS must display the date and time of the last successful account logon upon logon."
 
 update_counters "$rule_result"
 
@@ -6002,9 +5944,9 @@ print_rule_result "$rule_result" "SV-260557r958804_rule" "Ubuntu 22.04 LTS must 
 update_counters "$rule_result"
 
 # --------------------------------------------------------------------------------
-# Check for SV-260558r1015011_rule: Ubuntu 22.04 LTS must require users to reauthenticate for privilege escalation or when changing roles.
+# Check for SV-260558r1050789_rule: Ubuntu 22.04 LTS must require users to reauthenticate for privilege escalation or when changing roles.
 # --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260558r1015011_rule ===${NC}"
+echo -e "\n${CYAN}=== Checking SV-260558r1050789_rule ===${NC}"
 echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must require users to reauthenticate for privilege escalation or when changing roles."
 echo -e "${BLUE}Requirement Type:${NC} positive"
 echo -e "${BLUE}Check Type:${NC} generic\n"
@@ -6034,7 +5976,7 @@ echo "$output_0"
 echo ""
 
 # Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -Ei '(nopasswd|!authenticate)' /etc/sudoers /etc/sudoers.d/*" "SV-260558r1015011_rule")
+cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -Ei '(nopasswd|!authenticate)' /etc/sudoers /etc/sudoers.d/*" "SV-260558r1050789_rule")
 echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
 
 # If any command fails, the whole rule fails
@@ -6054,7 +5996,7 @@ if [ $(is_manual_check "$check_content") == "true" ]; then
 fi
 
 # Print the final result for this rule
-print_rule_result "$rule_result" "SV-260558r1015011_rule" "Ubuntu 22.04 LTS must require users to reauthenticate for privilege escalation or when changing roles."
+print_rule_result "$rule_result" "SV-260558r1050789_rule" "Ubuntu 22.04 LTS must require users to reauthenticate for privilege escalation or when changing roles."
 
 update_counters "$rule_result"
 
@@ -6611,9 +6553,9 @@ print_rule_result "$rule_result" "SV-260567r991587_rule" "Ubuntu 22.04 LTS must 
 update_counters "$rule_result"
 
 # --------------------------------------------------------------------------------
-# Check for SV-260569r1015018_rule: Ubuntu 22.04 LTS must store only encrypted representations of passwords.
+# Check for SV-260569r1044767_rule: Ubuntu 22.04 LTS must store only encrypted representations of passwords.
 # --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260569r1015018_rule ===${NC}"
+echo -e "\n${CYAN}=== Checking SV-260569r1044767_rule ===${NC}"
 echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must store only encrypted representations of passwords."
 echo -e "${BLUE}Requirement Type:${NC} positive"
 echo -e "${BLUE}Check Type:${NC} generic\n"
@@ -6623,7 +6565,7 @@ cat << 'EOF'
 Verify the Ubuntu operating stores only encrypted representations of passwords with the following command: 
  
      $ grep pam_unix.so /etc/pam.d/common-password 
-     password [success=1 default=ignore] pam_unix.so obscure sha512 shadow remember=5 rounds=5000 
+     password [success=1 default=ignore] pam_unix.so obscure sha512 shadow remember=5 rounds=100000
  
 If "sha512" is missing from the "pam_unix.so" line, this is a finding.
 EOF
@@ -6644,7 +6586,7 @@ echo "$output_0"
 echo ""
 
 # Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep pam_unix.so /etc/pam.d/common-password" "SV-260569r1015018_rule")
+cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep pam_unix.so /etc/pam.d/common-password" "SV-260569r1044767_rule")
 echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
 
 # If any command fails, the whole rule fails
@@ -6664,7 +6606,7 @@ if [ $(is_manual_check "$check_content") == "true" ]; then
 fi
 
 # Print the final result for this rule
-print_rule_result "$rule_result" "SV-260569r1015018_rule" "Ubuntu 22.04 LTS must store only encrypted representations of passwords."
+print_rule_result "$rule_result" "SV-260569r1044767_rule" "Ubuntu 22.04 LTS must store only encrypted representations of passwords."
 
 update_counters "$rule_result"
 
@@ -6957,9 +6899,9 @@ print_rule_result "$rule_result" "SV-260574r958816_rule" "Ubuntu 22.04 LTS must 
 update_counters "$rule_result"
 
 # --------------------------------------------------------------------------------
-# Check for SV-260575r1015020_rule: Ubuntu 22.04 LTS must implement smart card logins for multifactor authentication for local and network access to privileged and nonprivileged accounts.
+# Check for SV-260575r1044770_rule: Ubuntu 22.04 LTS must implement smart card logins for multifactor authentication for local and network access to privileged and nonprivileged accounts.
 # --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260575r1015020_rule ===${NC}"
+echo -e "\n${CYAN}=== Checking SV-260575r1044770_rule ===${NC}"
 echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must implement smart card logins for multifactor authentication for local and network access to privileged and nonprivileged accounts."
 echo -e "${BLUE}Requirement Type:${NC} positive"
 echo -e "${BLUE}Check Type:${NC} config\n"
@@ -6969,16 +6911,16 @@ cat << 'EOF'
 Verify that the "pam_pkcs11.so" module is configured by using the following command: 
  
      $ grep -i pam_pkcs11.so /etc/pam.d/common-auth 
-     auth     [success=2 default=ignore]     pam_pkcs11.so  
+     auth     [success=3 default=ignore]     pam_pkcs11.so  
  
-If "pam_pkcs11.so" is commented out, or is missing, this is a finding. 
+If "pam_pkcs11.so" is commented out or is missing, this is a finding. 
  
 Verify the sshd daemon allows public key authentication by using the following command: 
   
      $ sudo /usr/sbin/sshd -dd 2>&1 | awk '/filename/ {print $4}' | tr -d '\r' | tr '\n' ' ' | xargs sudo grep -iH 'pubkeyauthentication' 
      /etc/ssh/sshd_config:PubkeyAuthentication yes 
  
-If "PubkeyAuthentication" is not set to "yes", is commented out, is missing, or conflicting results are returned, this is a finding.
+If "PubkeyAuthentication" is not set to "yes" or is commented out or missing, or if conflicting results are returned, this is a finding.
 EOF
 
 echo ""
@@ -6997,7 +6939,7 @@ echo "$output_0"
 echo ""
 
 # Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -i pam_pkcs11.so /etc/pam.d/common-auth" "SV-260575r1015020_rule")
+cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -i pam_pkcs11.so /etc/pam.d/common-auth" "SV-260575r1044770_rule")
 echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
 
 # If any command fails, the whole rule fails
@@ -7017,7 +6959,7 @@ if [ $(is_manual_check "$check_content") == "true" ]; then
 fi
 
 # Print the final result for this rule
-print_rule_result "$rule_result" "SV-260575r1015020_rule" "Ubuntu 22.04 LTS must implement smart card logins for multifactor authentication for local and network access to privileged and nonprivileged accounts."
+print_rule_result "$rule_result" "SV-260575r1044770_rule" "Ubuntu 22.04 LTS must implement smart card logins for multifactor authentication for local and network access to privileged and nonprivileged accounts."
 
 update_counters "$rule_result"
 
@@ -7704,9 +7646,9 @@ print_rule_result "$rule_result" "SV-260585r958946_rule" "Ubuntu 22.04 LTS must 
 update_counters "$rule_result"
 
 # --------------------------------------------------------------------------------
-# Check for SV-260586r991567_rule: Ubuntu 22.04 LTS must use cryptographic mechanisms to protect the integrity of audit tools.
+# Check for SV-260586r1044779_rule: Ubuntu 22.04 LTS must use cryptographic mechanisms to protect the integrity of audit tools.
 # --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260586r991567_rule ===${NC}"
+echo -e "\n${CYAN}=== Checking SV-260586r1044779_rule ===${NC}"
 echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must use cryptographic mechanisms to protect the integrity of audit tools."
 echo -e "${BLUE}Requirement Type:${NC} positive"
 echo -e "${BLUE}Check Type:${NC} config\n"
@@ -7721,7 +7663,6 @@ Verify that Advanced Intrusion Detection Environment (AIDE) is properly configur
      /sbin/ausearch p+i+n+u+g+s+b+acl+xattrs+sha512  
      /sbin/aureport p+i+n+u+g+s+b+acl+xattrs+sha512  
      /sbin/autrace p+i+n+u+g+s+b+acl+xattrs+sha512  
-     /sbin/audispd p+i+n+u+g+s+b+acl+xattrs+sha512  
      /sbin/augenrules p+i+n+u+g+s+b+acl+xattrs+sha512  
   
 If any of the seven lines do not appear as shown, are commented out, or are missing, this is a finding.
@@ -7743,7 +7684,7 @@ echo "$output_0"
 echo ""
 
 # Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -E '(\/sbin\/(audit|au))' /etc/aide/aide.conf" "SV-260586r991567_rule")
+cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -E '(\/sbin\/(audit|au))' /etc/aide/aide.conf" "SV-260586r1044779_rule")
 echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
 
 # If any command fails, the whole rule fails
@@ -7763,7 +7704,7 @@ if [ $(is_manual_check "$check_content") == "true" ]; then
 fi
 
 # Print the final result for this rule
-print_rule_result "$rule_result" "SV-260586r991567_rule" "Ubuntu 22.04 LTS must use cryptographic mechanisms to protect the integrity of audit tools."
+print_rule_result "$rule_result" "SV-260586r1044779_rule" "Ubuntu 22.04 LTS must use cryptographic mechanisms to protect the integrity of audit tools."
 
 update_counters "$rule_result"
 
@@ -8325,9 +8266,9 @@ print_rule_result "$rule_result" "SV-260593r958424_rule" "Ubuntu 22.04 LTS must 
 update_counters "$rule_result"
 
 # --------------------------------------------------------------------------------
-# Check for SV-260594r958426_rule: Ubuntu 22.04 LTS must shut down by default upon audit failure.
+# Check for SV-260594r1038966_rule: Ubuntu 22.04 LTS must shut down by default upon audit failure.
 # --------------------------------------------------------------------------------
-echo -e "\n${CYAN}=== Checking SV-260594r958426_rule ===${NC}"
+echo -e "\n${CYAN}=== Checking SV-260594r1038966_rule ===${NC}"
 echo -e "${BLUE}Title:${NC} Ubuntu 22.04 LTS must shut down by default upon audit failure."
 echo -e "${BLUE}Requirement Type:${NC} positive"
 echo -e "${BLUE}Check Type:${NC} config\n"
@@ -8358,7 +8299,7 @@ echo "$output_0"
 echo ""
 
 # Evaluate command result using function
-cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -i disk_full_action /etc/audit/auditd.conf" "SV-260594r958426_rule")
+cmd_result_0=$(evaluate_command_result "$exit_code_0" "$output_0" "positive" "grep -i disk_full_action /etc/audit/auditd.conf" "SV-260594r1038966_rule")
 echo -e "${BLUE}Command 1 Result:${NC} $cmd_result_0"
 
 # If any command fails, the whole rule fails
@@ -8378,7 +8319,7 @@ if [ $(is_manual_check "$check_content") == "true" ]; then
 fi
 
 # Print the final result for this rule
-print_rule_result "$rule_result" "SV-260594r958426_rule" "Ubuntu 22.04 LTS must shut down by default upon audit failure."
+print_rule_result "$rule_result" "SV-260594r1038966_rule" "Ubuntu 22.04 LTS must shut down by default upon audit failure."
 
 update_counters "$rule_result"
 

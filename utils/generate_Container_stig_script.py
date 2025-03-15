@@ -8,6 +8,217 @@ import sys
 import os
 import json
 import subprocess
+import re
+
+# List of commands and services that are incompatible with Docker containers
+DOCKER_INCOMPATIBLE_COMMANDS = [
+    # System management
+    'systemctl',
+    'systemd',
+    'service ',
+    'initctl',
+    'upstart',
+    'init ',
+    'telinit',
+    'shutdown',
+    'reboot',
+    'poweroff',
+    'halt',
+    
+    # Kernel and hardware
+    'sysctl',
+    'modprobe',
+    'insmod',
+    'rmmod',
+    'lsmod',
+    'dmesg',
+    'uname -r',
+    'grub-',
+    'update-grub',
+    
+    # Hardware tools
+    'lspci',
+    'lsusb',
+    'lshw',
+    'dmidecode',
+    'hdparm',
+    'fdisk',
+    'parted',
+    'mount ',
+    'umount',
+    
+    # Audit system
+    'auditd',
+    'auditctl',
+    'ausearch',
+    'aureport',
+    
+    # Firewall
+    'firewalld',
+    'ufw',
+    'iptables',
+    'ip6tables',
+    'firewall-cmd',
+    
+    # Filesystem
+    'cryptsetup',
+    'fsck',
+    'e2fsck',
+    'resize2fs',
+    'tune2fs',
+    
+    # Security frameworks
+    'apparmor',
+    'selinux',
+    
+    # SSH-related commands
+    'sshd',
+    'ssh_config',
+    'sshd_config',
+    
+    # PAM-related commands
+    'pam-auth',
+    'pam.d',
+    'pamconf',
+    'authconfig',
+]
+
+# Function to determine if a STIG check is compatible with Docker
+def is_docker_compatible(rule_id, title, check_content, commands):
+    """
+    Determine if a STIG check is compatible with Docker containers by checking
+    if it uses commands or references services that don't apply in containers.
+    
+    Args:
+        rule_id: The ID of the STIG rule
+        title: The title of the STIG rule
+        check_content: The check content description
+        commands: List of commands used to check compliance
+        
+    Returns:
+        bool: True if the check is compatible with Docker, False otherwise
+    """
+    # First, check the check_content for incompatible commands
+    for incompatible_cmd in DOCKER_INCOMPATIBLE_COMMANDS:
+        if re.search(r'\b' + re.escape(incompatible_cmd) + r'\b', check_content, re.IGNORECASE):
+            return False
+    
+    # Then check the extracted commands
+    for cmd in commands:
+        if not cmd.strip():
+            continue
+            
+        if any(incompatible_cmd in cmd for incompatible_cmd in DOCKER_INCOMPATIBLE_COMMANDS):
+            return False
+    
+    # Check title for incompatible keywords
+    incompatible_title_keywords = [
+        'boot', 'reboot', 'startup', 'shutdown',
+        'kernel', 'module', 'hardware', 'physical',
+        'bios', 'uefi', 'grub', 'audit', 'auditd',
+        'fips', 'systemd', 'systemctl', 'service',
+        'mount', 'filesystem', 'partition', 'disk',
+        # Explicitly exclude AIDE-related checks
+        'aide', 'integrity', 'file integrity',
+        # Explicitly exclude PAM-related checks
+        'pam', 'authentication', 'smart card', 'smartcard', 'pkcs11', 'pkcs', 'pki'
+    ]
+    
+    for keyword in incompatible_title_keywords:
+        if re.search(r'\b' + keyword + r'\b', title, re.IGNORECASE):
+            return False
+    
+    # Check content for incompatible keywords and patterns
+    incompatible_content_keywords = [
+        'systemctl', 'systemd', 'service', 'init.d',
+        'boot', 'reboot', 'kernel', 'module',
+        'hardware', 'physical', 'bios', 'uefi',
+        'grub', 'audit', 'auditd', 'fips',
+        'mount', 'filesystem', 'partition', 'disk',
+        'removable media', 'usb', 'cdrom', 'firewall',
+        'ufw', 'iptables', 'apparmor', 'selinux',
+        'shutdown', 'halt', 'poweroff', 'initctl',
+        'journalctl', 'journald', 'dmesg', 'modprobe',
+        'lsmod', 'insmod', 'rmmod', 'cryptsetup',
+        'fsck', 'e2fsck', 'resize2fs', 'tune2fs',
+        'lspci', 'lsusb', 'lshw', 'dmidecode',
+        'hdparm', 'fdisk', 'parted',
+        # Explicitly exclude AIDE-related checks
+        'aide', 'integrity', 'file integrity',
+        # Explicitly exclude PAM-related checks
+        'pam', 'pam_', 'pam.d', 'pamconf', 'pam_pkcs11', 'pam_unix', 'pam_faillock',
+        'pam_tally2', 'pam_access', 'pam_lastlog', 'pam_pwquality', 'pam_cracklib',
+        'authentication', 'smart card', 'smartcard', 'pkcs11', 'pkcs', 'pki'
+    ]
+    
+    # Check both the check content and the commands for incompatible keywords
+    for keyword in incompatible_content_keywords:
+        # Check in check content
+        if re.search(r'\b' + keyword + r'\b', check_content, re.IGNORECASE):
+            return False
+            
+        # Also check in commands
+        for cmd in commands:
+            if not cmd.strip():
+                continue
+                
+            if re.search(r'\b' + keyword + r'\b', cmd, re.IGNORECASE):
+                return False
+    
+    # Check for specific file paths that don't exist or are not relevant in Docker
+    incompatible_file_paths = [
+        '/boot/', '/etc/default/grub', '/etc/fstab',
+        '/etc/systemd/', '/lib/systemd/', '/run/systemd/',
+        '/etc/init/', '/etc/init.d/', '/etc/inittab',
+        '/proc/sys/kernel/', '/sys/kernel/', 
+        '/etc/sysctl', '/etc/modprobe',
+        '/etc/udev/', '/dev/shm', '/etc/audisp/',
+        '/etc/audit/', '/var/log/audit/', '/etc/security/audit'
+    ]
+    
+    for path in incompatible_file_paths:
+        if path in check_content:
+            return False
+    
+    # Check for specific services that don't exist in Docker
+    incompatible_services = [
+        'auditd', 'systemd-journald', 'rsyslog', 'syslog',
+        'firewalld', 'ufw', 'iptables', 'apparmor',
+        'selinux', 'aidecheck', 'aide.timer', 'chrony',
+        'ntpd', 'timesyncd', 'kdump', 'ctrl-alt-del',
+        'emergency', 'rescue', 'halt', 'reboot',
+        'shutdown', 'suspend', 'hibernate', 'sleep'
+    ]
+    
+    # Check both the check content and the commands for incompatible services
+    for service in incompatible_services:
+        # Check in the check content
+        service_pattern = r'\b' + service + r'(\s+service|\.[a-z]+)?\b'
+        if re.search(service_pattern, check_content, re.IGNORECASE):
+            return False
+            
+        # Also check in the commands
+        for cmd in commands:
+            if not cmd.strip():
+                continue
+                
+            if re.search(service_pattern, cmd, re.IGNORECASE):
+                return False
+    
+    # Check for specific graphical interface related checks (not applicable in Docker)
+    gui_patterns = [
+        r'\bgnome\b', r'\bx11\b', r'\bxorg\b', r'\bxserver\b',
+        r'\bdisplay manager\b', r'\blightdm\b', r'\bgdm\b',
+        r'\bsddm\b', r'\bxdm\b', r'\bscreensaver\b',
+        r'\bdesktop\b', r'\bgsettings\b', r'\bdconf\b'
+    ]
+    
+    for pattern in gui_patterns:
+        if re.search(pattern, check_content, re.IGNORECASE):
+            return False
+    
+    # If we've made it this far, the check is likely compatible with Docker
+    return True
 
 # Function to fix problematic commands
 def fix_command(command, rule_id):
@@ -16,32 +227,33 @@ def fix_command(command, rule_id):
         # The issue is with the closing quote in the second grep command
         if "grep -v \"^" in command and not command.endswith('"'):
             return command + '"'
-
-        # Special case for the maxlogins check
-        if "maxlogins" in command and ("'^[^#]" in command or "\"^[^#]" in command):
-            # For the specific maxlogins check, use a hardcoded command without eval
-            # This ensures the command is executed directly without shell interpretation issues
-            return "grep -r -s \"^[^#].*maxlogins\" /etc/security/limits.conf /etc/security/limits.d/*.conf"
-        
-        # General case for grep commands with regex patterns in single quotes
-        if command.startswith("grep ") and "'" in command:
-            # For any grep command with square brackets or other special regex chars
-            if "[" in command or "]" in command:
-                # Split the command into parts: grep, options, pattern, and files
-                parts = command.split("'")
-                if len(parts) >= 3:
-                    # parts[0] contains 'grep -options ', parts[1] contains the pattern, parts[2] contains ' files'
-                    grep_and_options = parts[0].strip()
-                    pattern = parts[1]
-                    files = parts[2].strip()
-                    
-                    # Escape special regex characters for shell evaluation
-                    escaped_pattern = pattern
-                    for char in ['[', ']', '^', '$', '*', '+', '?', '.', '(', ')']:
-                        escaped_pattern = escaped_pattern.replace(char, f"\\{char}")
-                    
-                    # Reconstruct the command with proper escaping
-                    return f"{grep_and_options}'{escaped_pattern}'{files}"
+    
+    # Special case for the maxlogins check
+    if "maxlogins" in command and ("'^[^#]" in command or "\"^[^#]" in command):
+        # For the specific maxlogins check, use a hardcoded command without eval
+        # This ensures the command is executed directly without shell interpretation issues
+        return "grep -r -s \"^[^#].*maxlogins\" /etc/security/limits.conf /etc/security/limits.d/*.conf"
+    
+    # General case for grep commands with regex patterns in single quotes
+    if command.startswith("grep ") and "'" in command:
+        # For any grep command with square brackets or other special regex chars
+        if "[" in command or "]" in command:
+            # Split the command into parts: grep, options, pattern, and files
+            parts = command.split("'")
+            if len(parts) >= 3:
+                # parts[0] contains 'grep -options ', parts[1] contains the pattern, parts[2] contains ' files'
+                grep_and_options = parts[0].strip()
+                pattern = parts[1]
+                files = parts[2].strip()
+                
+                # Escape special regex characters for shell evaluation
+                escaped_pattern = pattern
+                for char in ['[', ']', '^', '$', '*', '+', '?', '.', '(', ')']:
+                    escaped_pattern = escaped_pattern.replace(char, f"\\{char}")
+                
+                # Reconstruct the command with proper escaping
+                return f"{grep_and_options}'{escaped_pattern}'{files}"
+    
     return command
 
 def main():
@@ -52,13 +264,46 @@ def main():
     xml_file = sys.argv[1]
     output_file = "stig_blocks.sh" if len(sys.argv) < 3 else sys.argv[2]
     
-    # Get all rule IDs
+    # Get all rule IDs and filter for Docker compatibility
     try:
         rule_ids_output = subprocess.check_output(["python3", "utils/parse_stig_xml.py", xml_file, "--list-rules"], 
                                                   universal_newlines=True)
-        rule_ids = rule_ids_output.strip().split('\n')
+        all_rule_ids = rule_ids_output.strip().split('\n')
+        
+        # Filter rule IDs for Docker compatibility
+        rule_ids = []
+        for rule_id in all_rule_ids:
+            # Get the rule details to check compatibility
+            try:
+                # Get rule information using the same approach as in the main script generation
+                title = subprocess.check_output(["python3", "utils/parse_stig_xml.py", xml_file, rule_id, "title"], 
+                                            universal_newlines=True).strip()
+                check_content = subprocess.check_output(["python3", "utils/parse_stig_xml.py", xml_file, rule_id, "check_content"], 
+                                                   universal_newlines=True).strip()
+                commands_json = subprocess.check_output(["python3", "utils/parse_stig_xml.py", xml_file, rule_id, "commands"], 
+                                                  universal_newlines=True).strip()
+                
+                # Parse commands if available
+                commands = []
+                if commands_json:
+                    try:
+                        commands = json.loads(commands_json)
+                    except json.JSONDecodeError:
+                        # If there's an error parsing JSON, continue with empty commands list
+                        pass
+                
+                # Check if rule is compatible with Docker
+                if is_docker_compatible(rule_id, title, check_content, commands):
+                    rule_ids.append(rule_id)
+                    
+            except subprocess.CalledProcessError:
+                # Skip rules that can't be processed
+                continue
+                
+        print(f"Filtered {len(all_rule_ids)} rules down to {len(rule_ids)} Docker-compatible rules", file=sys.stderr)
+        
     except subprocess.CalledProcessError as e:
-        print(f"Error getting rule IDs: {e}")
+        print(f"Error getting rule IDs: {e}", file=sys.stderr)
         sys.exit(1)
     
     # Start building the shell script with header, functions, and initialization
@@ -82,7 +327,7 @@ def main():
             check_type = subprocess.check_output(["python3", "utils/parse_stig_xml.py", xml_file, rule_id, "check_type"], 
                                                universal_newlines=True).strip()
         except subprocess.CalledProcessError as e:
-            print(f"Error getting info for rule {rule_id}: {e}")
+            print(f"Error getting info for rule {rule_id}: {e}", file=sys.stderr)
             continue
             
         # Parse commands if available
@@ -91,7 +336,7 @@ def main():
             try:
                 commands = json.loads(commands_json)
             except json.JSONDecodeError as e:
-                print(f"Error parsing commands for rule {rule_id}: {e}")
+                print(f"Error parsing commands for rule {rule_id}: {e}", file=sys.stderr)
         
         # Generate block for this rule
         block = generate_check_block(rule_id, title, check_content, commands, requirement_type, check_type)
@@ -105,9 +350,9 @@ def main():
         with open(output_file, 'w') as f:
             f.write(script_content)
         os.chmod(output_file, 0o755)  # Make executable
-        print(f"Script written to {output_file}")
+        print(f"Script written to {output_file}", file=sys.stderr)
     except Exception as e:
-        print(f"Error writing script: {e}")
+        print(f"Error writing script: {e}", file=sys.stderr)
         sys.exit(1)
 
 def generate_script_header():
@@ -719,7 +964,7 @@ rule_result="PASS"  # Start with assumption of pass
             # Fix any problematic commands
             cmd = fix_command(cmd, rule_id)
             
-            # Escape any problematic characters for shell
+            # Standard approach for other commands
             cmd_escaped = cmd.replace('"', '\\"').replace('$', '\\$')
             
             block += f"""
